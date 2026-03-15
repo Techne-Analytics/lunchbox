@@ -22,6 +22,8 @@ class TestSyncErrors:
         assert log.status == "error"
         assert log.error_message is not None
         assert log.items_fetched == 0
+        # dates_synced reports total requested, not successful — by design
+        assert log.dates_synced == 3
         assert (
             db.query(MenuItem).filter(MenuItem.subscription_id == sub.id).count() == 0
         )
@@ -47,6 +49,8 @@ class TestSyncErrors:
 
         assert log.status == "partial"
         assert log.items_fetched == 2
+        # dates_synced reports total requested, not successful — by design
+        assert log.dates_synced == 3
         assert "Intermittent failure" in log.error_message
 
     def test_timeout_handled_gracefully(self, db):

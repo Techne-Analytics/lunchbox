@@ -20,7 +20,7 @@ class TestSyncTrigger:
 
         assert response.status_code == 200
         data = response.json()
-        assert data["status"] in ("success", "partial", "error")
+        assert data["status"] == "success"
         assert "items_fetched" in data
 
     def test_trigger_sync_isolation(self, authenticated_client, db):

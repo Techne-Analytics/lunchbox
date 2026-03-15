@@ -46,16 +46,17 @@ class TestScheduler:
         stop_scheduler()  # should not raise
 
     def test_daily_sync_job_handles_exception(self):
-        """sync_all raising does not kill the scheduler."""
+        """sync_all raising does not kill the scheduler, and error is logged."""
         with patch("lunchbox.scheduler.jobs.sync_all", side_effect=Exception("boom")):
             with patch("lunchbox.scheduler.jobs.SessionLocal") as MockSession:
-                mock_db = MagicMock()
-                MockSession.return_value = mock_db
+                with patch("lunchbox.scheduler.jobs.logger") as mock_logger:
+                    mock_db = MagicMock()
+                    MockSession.return_value = mock_db
 
-                # Should not raise
-                daily_sync_job()
+                    daily_sync_job()
 
-                mock_db.close.assert_called_once()
+                    mock_db.close.assert_called_once()
+                    mock_logger.exception.assert_called_once()
 
     def test_job_uses_configured_time(self):
         with patch("lunchbox.scheduler.jobs.settings") as mock_settings:

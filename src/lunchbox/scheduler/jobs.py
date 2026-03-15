@@ -52,5 +52,9 @@ def start_scheduler() -> None:
 def stop_scheduler() -> None:
     global _scheduler  # noqa: PLW0603
     if _scheduler:
-        _scheduler.shutdown(wait=False)
-        _scheduler = None
+        try:
+            _scheduler.shutdown(wait=False)
+        except Exception:
+            logger.exception("Error shutting down scheduler")
+        finally:
+            _scheduler = None

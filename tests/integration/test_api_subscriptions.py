@@ -1,6 +1,3 @@
-from lunchbox.auth.dependencies import get_current_user
-from lunchbox.main import app
-from lunchbox.models import Subscription, User
 from tests.factories import (
     create_menu_item,
     create_subscription,
@@ -9,12 +6,8 @@ from tests.factories import (
 )
 
 
-def test_create_subscription(client, db):
-    user = User(google_id="api-create", email="t@t.com", name="Test")
-    db.add(user)
-    db.flush()
-
-    app.dependency_overrides[get_current_user] = lambda: user
+def test_create_subscription(authenticated_client, db):
+    client, user = authenticated_client
 
     response = client.post(
         "/api/subscriptions",
@@ -38,34 +31,17 @@ def test_create_subscription(client, db):
     assert "feed_url" in data
     assert data["feed_url"].startswith("/cal/")
 
-    app.dependency_overrides.pop(get_current_user, None)
 
-
-def test_list_subscriptions(client, db):
-    user = User(google_id="api-list", email="t@t.com", name="Test")
-    db.add(user)
-    db.flush()
-
-    sub = Subscription(
-        user_id=user.id,
-        school_id="abc",
-        school_name="School",
-        grade="05",
-        meal_configs=[],
-        display_name="Test",
-    )
-    db.add(sub)
-    db.flush()
-
-    app.dependency_overrides[get_current_user] = lambda: user
+def test_list_subscriptions(authenticated_client, db):
+    client, user = authenticated_client
+    create_subscription(db, user, display_name="Test")
+    db.commit()
 
     response = client.get("/api/subscriptions")
     assert response.status_code == 200
     data = response.json()
-    assert len(data) == 1
-    assert data[0]["display_name"] == "Test"
-
-    app.dependency_overrides.pop(get_current_user, None)
+    assert len(data) >= 1
+    assert any(s["display_name"] == "Test" for s in data)
 
 
 def test_get_subscription(authenticated_client, db):

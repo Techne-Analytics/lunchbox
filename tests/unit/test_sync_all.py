@@ -22,9 +22,12 @@ class TestSyncAll:
         mock_client = MagicMock()
 
         with patch("lunchbox.sync.engine.sync_subscription", side_effect=mock_sync):
-            sync_all(db, mock_client, days=1, skip_weekends=False)
+            with patch("lunchbox.sync.engine.logger") as mock_logger:
+                sync_all(db, mock_client, days=1, skip_weekends=False)
 
         assert call_count == 2
+        # Verify the failure was logged, not silently swallowed
+        mock_logger.exception.assert_called_once()
 
     def test_only_active_subscriptions_synced(self, db):
         user = create_user(db)
