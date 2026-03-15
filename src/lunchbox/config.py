@@ -3,7 +3,7 @@ from pydantic_settings import BaseSettings
 
 class Settings(BaseSettings):
     database_url: str = "postgresql://lunchbox:lunchbox@localhost:5432/lunchbox"
-    secret_key: str = "dev-secret-key-change-in-production"
+    secret_key: str
     base_url: str = "http://localhost:8000"
 
     google_client_id: str = ""

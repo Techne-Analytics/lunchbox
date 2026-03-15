@@ -1,0 +1,75 @@
+{
+  // ── Python / Ruff ──────────────────────────────────────────────
+  "python.defaultInterpreterPath": "${workspaceFolder}/.venv/bin/python",
+  "python.analysis.typeCheckingMode": "basic",
+  "python.analysis.autoImportCompletions": true,
+  "python.analysis.inlayHints.functionReturnTypes": true,
+  "python.analysis.inlayHints.variableTypes": false,
+
+  // Use Ruff as the sole linter+formatter (matches pyproject.toml)
+  "[python]": {
+    "editor.defaultFormatter": "charliermarsh.ruff",
+    "editor.formatOnSave": true,
+    "editor.codeActionsOnSave": {
+      "source.fixAll.ruff": "explicit",
+      "source.organizeImports.ruff": "explicit"
+    }
+  },
+
+  // ── Editor ─────────────────────────────────────────────────────
+  "editor.rulers": [88],
+  "files.trimTrailingWhitespace": true,
+  "files.insertFinalNewline": true,
+  "files.trimFinalNewlines": true,
+
+  // ── Testing ────────────────────────────────────────────────────
+  "python.testing.pytestEnabled": true,
+  "python.testing.pytestArgs": ["tests"],
+
+  // ── File associations ──────────────────────────────────────────
+  "files.associations": {
+    "*.html": "jinja-html",
+    "*.jinja2": "jinja-html",
+    "docker-compose*.yml": "dockercompose"
+  },
+  "emmet.includeLanguages": {
+    "jinja-html": "html"
+  },
+
+  // ── AI-first: search/explorer exclusions ───────────────────────
+  // Keep AI context windows and search results clean
+  "files.exclude": {
+    "**/__pycache__": true,
+    "**/*.pyc": true,
+    "**/.pytest_cache": true,
+    "**/*.egg-info": true,
+    ".ruff_cache": true,
+    "n8n_data": true
+  },
+  "search.exclude": {
+    "**/__pycache__": true,
+    "**/*.pyc": true,
+    "**/node_modules": true,
+    "n8n_data": true,
+    "tasks_data": true,
+    ".ruff_cache": true
+  },
+
+  // ── AI-first: Copilot / Claude integration ─────────────────────
+  "github.copilot.enable": {
+    "*": true,
+    "plaintext": true,
+    "markdown": true
+  },
+
+  // ── Terminal ───────────────────────────────────────────────────
+  "terminal.integrated.env.windows": {
+    "PYTHONDONTWRITEBYTECODE": "1"
+  },
+  "terminal.integrated.env.linux": {
+    "PYTHONDONTWRITEBYTECODE": "1"
+  },
+
+  // ── SQLAlchemy / Jinja2 ────────────────────────────────────────
+  "python.analysis.extraPaths": ["${workspaceFolder}/src"]
+}
