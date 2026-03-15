@@ -1,12 +1,26 @@
-# OAuth credentials
-tasks_data/token.json
-tasks_data/client_secret.json
+# Python
+__pycache__/
+*.pyc
+*.egg-info/
+dist/
+build/
 
-# n8n persistent data
-n8n_data/
-
-# Debug output
-tasks_data/debug/
-
-# Environment variables (contains secrets)
+# Environment
 .env
+
+# OAuth credentials
+tasks_data/
+
+# Database
+*.sqlite
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Superpowers
+.superpowers/
