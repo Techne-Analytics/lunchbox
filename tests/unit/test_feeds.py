@@ -1,8 +1,8 @@
 import uuid
 from datetime import date, datetime, timezone
+from types import SimpleNamespace
 
 from lunchbox.api.feeds import _build_calendar
-from lunchbox.models import MenuItem, Subscription
 
 
 def _make_subscription(**overrides):
@@ -16,21 +16,18 @@ def _make_subscription(**overrides):
         show_as_busy=False,
     )
     defaults.update(overrides)
-    sub = Subscription.__new__(Subscription)
-    for k, v in defaults.items():
-        setattr(sub, k, v)
-    return sub
+    return SimpleNamespace(**defaults)
 
 
 def _make_item(sub_id, menu_date, meal_type, category, item_name):
-    item = MenuItem.__new__(MenuItem)
-    item.subscription_id = sub_id
-    item.menu_date = menu_date
-    item.meal_type = meal_type
-    item.category = category
-    item.item_name = item_name
-    item.fetched_at = datetime.now(timezone.utc)
-    return item
+    return SimpleNamespace(
+        subscription_id=sub_id,
+        menu_date=menu_date,
+        meal_type=meal_type,
+        category=category,
+        item_name=item_name,
+        fetched_at=datetime.now(timezone.utc),
+    )
 
 
 class TestBuildCalendar:
