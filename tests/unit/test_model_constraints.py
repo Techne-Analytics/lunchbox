@@ -57,7 +57,9 @@ class TestCascadeDeletes:
         db.delete(sub)
         db.commit()
 
-        assert db.query(MenuItem).filter(MenuItem.subscription_id == sub.id).count() == 0
+        assert (
+            db.query(MenuItem).filter(MenuItem.subscription_id == sub.id).count() == 0
+        )
         assert db.query(SyncLog).filter(SyncLog.subscription_id == sub.id).count() == 0
 
     def test_delete_user_cascades_subscriptions(self, db):
@@ -70,7 +72,9 @@ class TestCascadeDeletes:
         db.delete(user)
         db.commit()
 
-        assert db.query(Subscription).filter(Subscription.user_id == user.id).count() == 0
+        assert (
+            db.query(Subscription).filter(Subscription.user_id == user.id).count() == 0
+        )
 
 
 class TestAutoGeneration:

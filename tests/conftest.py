@@ -74,7 +74,9 @@ def second_user_client(db):
     """Second authenticated user for isolation tests. Yields (client, user)."""
     from tests.factories import create_user
 
-    user = create_user(db, google_id="second-user", email="other@example.com", name="Other")
+    user = create_user(
+        db, google_id="second-user", email="other@example.com", name="Other"
+    )
 
     def override_get_db():
         yield db

@@ -29,7 +29,9 @@ class TestSyncAll:
     def test_only_active_subscriptions_synced(self, db):
         user = create_user(db)
         active = create_subscription(db, user, display_name="Active", is_active=True)
-        inactive = create_subscription(db, user, display_name="Inactive", is_active=False)
+        inactive = create_subscription(
+            db, user, display_name="Inactive", is_active=False
+        )
         db.commit()
 
         mock_client = MagicMock()

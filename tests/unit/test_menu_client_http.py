@@ -19,7 +19,9 @@ class TestGetDailyMenu:
         )
 
         with SchoolCafeClient() as client:
-            items = client.get_daily_menu("s1", date(2026, 3, 16), "Lunch", "Trad", "05")
+            items = client.get_daily_menu(
+                "s1", date(2026, 3, 16), "Lunch", "Trad", "05"
+            )
 
         assert len(items) > 0
         assert items[0].item_name == "BBQ Chicken Drumstick"
@@ -33,7 +35,9 @@ class TestGetDailyMenu:
         )
 
         with SchoolCafeClient() as client:
-            items = client.get_daily_menu("s1", date(2026, 3, 16), "Lunch", "Trad", "05")
+            items = client.get_daily_menu(
+                "s1", date(2026, 3, 16), "Lunch", "Trad", "05"
+            )
 
         assert len(items) > 0
 

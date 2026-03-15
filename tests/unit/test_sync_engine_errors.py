@@ -22,7 +22,9 @@ class TestSyncErrors:
         assert log.status == "error"
         assert log.error_message is not None
         assert log.items_fetched == 0
-        assert db.query(MenuItem).filter(MenuItem.subscription_id == sub.id).count() == 0
+        assert (
+            db.query(MenuItem).filter(MenuItem.subscription_id == sub.id).count() == 0
+        )
 
     def test_mixed_failure_status_partial(self, db):
         user = create_user(db)
