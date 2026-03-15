@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 
 from sqlalchemy import ForeignKey, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -20,7 +20,7 @@ class SyncLog(Base):
     error_message: Mapped[str | None] = mapped_column(String, nullable=True)
     duration_ms: Mapped[int] = mapped_column(Integer, default=0)
     trace_id: Mapped[str | None] = mapped_column(String, nullable=True)
-    started_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
+    started_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(timezone.utc))
     completed_at: Mapped[datetime | None] = mapped_column(nullable=True)
 
     subscription = relationship("Subscription", back_populates="sync_logs")

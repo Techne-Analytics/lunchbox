@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime, time
+from datetime import datetime, time, timezone
 
 from sqlalchemy import JSON, Boolean, ForeignKey, Integer, String, Time
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -11,7 +11,7 @@ class Subscription(Base):
     __tablename__ = "subscriptions"
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
-    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"))
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
     provider: Mapped[str] = mapped_column(String, default="schoolcafe")
     school_id: Mapped[str] = mapped_column(String)
     school_name: Mapped[str] = mapped_column(String)
@@ -29,11 +29,15 @@ class Subscription(Base):
     event_start_time: Mapped[time | None] = mapped_column(Time, nullable=True)
     event_end_time: Mapped[time | None] = mapped_column(Time, nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
-    created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(timezone.utc))
     updated_at: Mapped[datetime] = mapped_column(
-        default=datetime.utcnow, onupdate=datetime.utcnow
+        default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc)
     )
 
     user = relationship("User", back_populates="subscriptions")
-    menu_items = relationship("MenuItem", back_populates="subscription")
-    sync_logs = relationship("SyncLog", back_populates="subscription")
+    menu_items = relationship(
+        "MenuItem", back_populates="subscription", cascade="all, delete-orphan"
+    )
+    sync_logs = relationship(
+        "SyncLog", back_populates="subscription", cascade="all, delete-orphan"
+    )

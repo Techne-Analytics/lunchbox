@@ -7,6 +7,7 @@ from sqlalchemy.orm import sessionmaker
 
 from lunchbox.db import Base, get_db
 from lunchbox.main import app
+import lunchbox.models  # noqa: F401 — registers models with Base
 
 TEST_DATABASE_URL = os.environ.get(
     "DATABASE_URL", "postgresql://lunchbox:lunchbox@localhost:5432/lunchbox_test"

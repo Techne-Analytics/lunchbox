@@ -1,3 +1,5 @@
+from datetime import date
+
 from lunchbox.models import MenuItem, Subscription, SyncLog, User
 
 
@@ -52,7 +54,7 @@ def test_create_menu_item(db):
     item = MenuItem(
         subscription_id=sub.id,
         school_id="abc",
-        menu_date="2026-03-15",
+        menu_date=date(2026, 3, 15),
         meal_type="Lunch",
         serving_line="Traditional Lunch",
         grade="05",
