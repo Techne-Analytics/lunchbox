@@ -31,14 +31,21 @@ def _extract_item_name(item) -> str | None:
             if value and isinstance(value, str):
                 return value.strip()
 
-        # Last resort: first string value in the dict
+        # Last resort: first non-numeric string value in the dict
         for value in item.values():
             if isinstance(value, str) and value.strip():
+                stripped = value.strip()
+                # Skip values that look like prices, IDs, or numbers
+                try:
+                    float(stripped)
+                    continue
+                except ValueError:
+                    pass
                 logger.warning(
                     "menu_client: used fallback extraction, key structure: %s",
                     list(item.keys()),
                 )
-                return value.strip()
+                return stripped
 
     return None
 
@@ -167,6 +174,12 @@ class SchoolCafeClient:
             for s in schools
             if s.get("SchoolId")
         ]
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        self.close()
 
     def close(self):
         self._client.close()
