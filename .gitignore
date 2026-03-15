@@ -1,0 +1,12 @@
+# OAuth credentials
+tasks_data/token.json
+tasks_data/client_secret.json
+
+# n8n persistent data
+n8n_data/
+
+# Debug output
+tasks_data/debug/
+
+# Environment variables (contains secrets)
+.env

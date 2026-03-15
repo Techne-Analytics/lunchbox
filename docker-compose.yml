@@ -1,0 +1,45 @@
+version: "3.8"
+services:
+  n8n:
+    image: n8nio/n8n
+    restart: always
+    ports:
+      - "5678:5678"
+    environment:
+      # Use your desired secure credentials
+      N8N_BASIC_AUTH_ACTIVE: "true"
+      N8N_BASIC_AUTH_USER: "admin"
+      N8N_BASIC_AUTH_PASSWORD: "${N8N_BASIC_AUTH_PASSWORD}"
+      # Set your timezone
+      GENERIC_TIMEZONE: "America/Denver"
+    volumes:
+      - ./n8n_data:/home/node/.n8n
+
+  tasks:
+    image: python:3.11-slim
+    restart: always
+    environment:
+      # School menu settings
+      # Shoemaker Elementary School ID (find others via API - see docs/api-discovery.md)
+      SCHOOL_ID: "179f1f75-67b9-44db-b2c5-83c678da3a0e"
+      GRADE: "05"
+      # Meal configuration: [{"mealType":"Lunch","line":"Traditional Lunch"},{"mealType":"Breakfast","line":"Grab n Go Breakfast"}]
+      MEALS_JSON: ""
+      # Calendar settings
+      CALENDAR_ID: "9f867f13c96a005bbc667c7093806b5eff527dfddee1f95718dccad8e83ab2a0@group.calendar.google.com"
+      # Schedule settings
+      TIMEZONE: "America/Denver"
+      SCHEDULE_HOUR: "6"
+      SCHEDULE_MINUTE: "0"
+      DAYS_TO_FETCH: "7"
+      SKIP_WEEKENDS: "true"
+      DISCORD_WEBHOOK_URL: "${DISCORD_WEBHOOK_URL}"
+    volumes:
+      - ./tasks:/app
+      - ./tasks_data:/data
+    working_dir: /app
+    entrypoint: ["sh", "/app/entrypoint.sh"]
+    command: []
+
+volumes:
+  n8n_data:
