@@ -21,9 +21,11 @@ class TestSyncAll:
 
         mock_client = MagicMock()
 
-        with patch("lunchbox.sync.engine.sync_subscription", side_effect=mock_sync):
-            with patch("lunchbox.sync.engine.logger") as mock_logger:
-                sync_all(db, mock_client, days=1, skip_weekends=False)
+        with (
+            patch("lunchbox.sync.engine.sync_subscription", side_effect=mock_sync),
+            patch("lunchbox.sync.engine.logger") as mock_logger,
+        ):
+            sync_all(db, mock_client, days=1, skip_weekends=False)
 
         assert call_count == 2
         # Verify the failure was logged, not silently swallowed
