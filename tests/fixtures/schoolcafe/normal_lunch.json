@@ -1,0 +1,21 @@
+{
+  "Entrees": [
+    {"MenuItemDescription": "BBQ Chicken Drumstick", "Price": "0.00"},
+    {"MenuItemDescription": "Grilled Cheese Sandwich", "Price": "0.00"}
+  ],
+  "Grains": [
+    {"MenuItemDescription": "Drop Biscuit", "Price": "0.00"}
+  ],
+  "Vegetables": [
+    {"MenuItemDescription": "Carrots", "Price": "0.00"}
+  ],
+  "Fruits": [
+    {"MenuItemDescription": "Pear", "Price": "0.00"}
+  ],
+  "Milk": [
+    {"MenuItemDescription": "1% Milk", "Price": "0.00"}
+  ],
+  "Condiments": [
+    {"MenuItemDescription": "Ketchup", "Price": "0.00"}
+  ]
+}

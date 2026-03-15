@@ -1,0 +1,11 @@
+{
+  "Hot Entrees": [
+    {"MenuItemDescription": "Tacos"}
+  ],
+  "Cold Entrees": [
+    {"MenuItemDescription": "Salad"}
+  ],
+  "Seasonal Fruits": [
+    {"MenuItemDescription": "Watermelon"}
+  ]
+}

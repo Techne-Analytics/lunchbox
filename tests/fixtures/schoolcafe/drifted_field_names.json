@@ -1,0 +1,10 @@
+{
+  "Entrees": [
+    {"Name": "Pizza", "name": "Pizza"},
+    {"description": "Burger"}
+  ],
+  "Fruits": [
+    "Apple",
+    "Banana"
+  ]
+}
