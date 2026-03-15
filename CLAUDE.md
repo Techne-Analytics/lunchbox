@@ -61,6 +61,6 @@ ruff check . && ruff format .    # lint + format
 
 ## External APIs
 
-- **SchoolCafe** (schoolcafe.com) — menu data. We do not control this API. Parse defensively, self-heal on schema drift.
+- **SchoolCafe** (schoolcafe.com) — menu data. We do not control this API. Parse defensively, self-heal on schema drift. See [docs/schoolcafe-api.md](docs/schoolcafe-api.md) for endpoint reference.
 - **Google OAuth** — login only (`openid`, `email`, `profile`). No calendar write scopes.
 - **Grafana Cloud OTLP** — telemetry export.
