@@ -2,6 +2,8 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
+from lunchbox.api.feeds import router as feeds_router
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -11,6 +13,7 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="Lunchbox", lifespan=lifespan)
+app.include_router(feeds_router)
 
 
 @app.get("/health")
