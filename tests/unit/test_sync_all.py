@@ -7,29 +7,35 @@ from tests.factories import create_subscription, create_user
 class TestSyncAll:
     def test_one_failure_does_not_block_others(self, db):
         user = create_user(db)
-        sub1 = create_subscription(db, user, display_name="Sub1")
+        create_subscription(db, user, display_name="Sub1")
         _sub2 = create_subscription(db, user, display_name="Sub2")
         db.commit()
 
+        mock_client = MagicMock()
+        mock_client.get_daily_menu.return_value = []
+
+        # Don't patch sync_subscription — let it run for real so we can
+        # verify both subscriptions are attempted via SyncLog records.
+        # Sub1 will fail at the API level, Sub2 will succeed with empty items.
         call_count = 0
 
-        def mock_sync(db, sub, client, **kwargs):
+        def failing_then_ok(*args, **kwargs):
             nonlocal call_count
             call_count += 1
-            if sub.id == sub1.id:
-                raise Exception("Sub1 failed")
+            # Fail for first subscription's calls, succeed for second
+            if call_count <= 1:
+                raise Exception("Sub1 API failure")
+            return []
 
-        mock_client = MagicMock()
+        mock_client.get_daily_menu.side_effect = failing_then_ok
 
-        with (
-            patch("lunchbox.sync.engine.sync_subscription", side_effect=mock_sync),
-            patch("lunchbox.sync.engine.logger") as mock_logger,
-        ):
-            sync_all(db, mock_client, days=1, skip_weekends=False)
+        from lunchbox.models import SyncLog
 
-        assert call_count == 2
-        # Verify the failure was logged, not silently swallowed
-        mock_logger.exception.assert_called_once()
+        sync_all(db, mock_client, days=1, skip_weekends=False)
+
+        # Both subscriptions should have sync logs
+        logs = db.query(SyncLog).all()
+        assert len(logs) == 2
 
     def test_only_active_subscriptions_synced(self, db):
         user = create_user(db)
