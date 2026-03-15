@@ -29,6 +29,7 @@ def create_subscription(db: Session, user: User, **overrides) -> Subscription:
             {"meal_type": "Lunch", "serving_line": "Traditional", "sort_order": 0}
         ],
         "display_name": "Test Elementary - 5th Grade",
+        "is_active": True,
     }
     defaults.update(overrides)
     sub = Subscription(**defaults)

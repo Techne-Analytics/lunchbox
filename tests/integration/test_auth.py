@@ -10,6 +10,10 @@ from tests.factories import create_user
 
 
 def test_login_redirects_to_google(client):
+    from lunchbox.config import settings
+
+    if not settings.google_client_id:
+        pytest.skip("GOOGLE_CLIENT_ID not configured")
     response = client.get("/auth/login", follow_redirects=False)
     assert response.status_code in (302, 303)
     assert "accounts.google.com" in response.headers.get("location", "")
