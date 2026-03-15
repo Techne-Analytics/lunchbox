@@ -65,7 +65,8 @@ def _build_calendar(subscription: Subscription, items: list[MenuItem]) -> Calend
         event.add("summary", summary)
         event.add("description", "\n".join(description_parts))
         event.add("dtstart", menu_date)
-        event.add("dtend", menu_date)
+        # All-day events: DTEND is exclusive, so next day
+        event.add("dtend", menu_date + timedelta(days=1))
         event.add(
             "uid",
             f"{subscription.feed_token}-{menu_date.isoformat()}-{meal_type}@lunchbox",
