@@ -5,10 +5,11 @@ WORKDIR /app
 # Install dependencies first (cached layer)
 COPY pyproject.toml .
 RUN mkdir -p src/lunchbox && touch src/lunchbox/__init__.py && \
-    pip install --no-cache-dir -e .
+    pip install --no-cache-dir .
 
-# Copy source
+# Copy source and reinstall (no-deps, just links the package)
 COPY . .
+RUN pip install --no-cache-dir --no-deps .
 
 EXPOSE 8000
 
