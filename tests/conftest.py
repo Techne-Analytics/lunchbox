@@ -1,5 +1,8 @@
 import os
 
+# Set test defaults before any lunchbox imports (Settings() runs at import time)
+os.environ.setdefault("SECRET_KEY", "test-secret-key-not-for-production")
+
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
