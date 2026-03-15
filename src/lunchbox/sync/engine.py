@@ -38,7 +38,7 @@ def sync_subscription(
     errors = []
 
     for sync_date in dates:
-        for meal_config in subscription.meal_configs:
+        for meal_config in subscription.meal_configs or []:
             meal_type = meal_config["meal_type"]
             serving_line = meal_config["serving_line"]
 
@@ -51,27 +51,32 @@ def sync_subscription(
                     grade=subscription.grade,
                 )
 
-                # Delete existing items for this date+meal (upsert strategy)
-                db.query(MenuItem).filter(
-                    MenuItem.subscription_id == subscription.id,
-                    MenuItem.menu_date == sync_date,
-                    MenuItem.meal_type == meal_type,
-                ).delete()
+                # Savepoint so DB errors don't corrupt the session
+                nested = db.begin_nested()
+                try:
+                    db.query(MenuItem).filter(
+                        MenuItem.subscription_id == subscription.id,
+                        MenuItem.menu_date == sync_date,
+                        MenuItem.meal_type == meal_type,
+                    ).delete()
 
-                # Insert fresh items
-                for item in items:
-                    db.add(
-                        MenuItem(
-                            subscription_id=subscription.id,
-                            school_id=subscription.school_id,
-                            menu_date=sync_date,
-                            meal_type=meal_type,
-                            serving_line=serving_line,
-                            grade=subscription.grade,
-                            category=item.category,
-                            item_name=item.item_name,
+                    for item in items:
+                        db.add(
+                            MenuItem(
+                                subscription_id=subscription.id,
+                                school_id=subscription.school_id,
+                                menu_date=sync_date,
+                                meal_type=meal_type,
+                                serving_line=serving_line,
+                                grade=subscription.grade,
+                                category=item.category,
+                                item_name=item.item_name,
+                            )
                         )
-                    )
+                    nested.commit()
+                except Exception:
+                    nested.rollback()
+                    raise
 
                 total_items += len(items)
 
