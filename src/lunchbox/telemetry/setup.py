@@ -15,7 +15,7 @@ from lunchbox.config import settings
 logger = logging.getLogger(__name__)
 
 
-def setup_telemetry(app=None, engine=None):
+def setup_telemetry(app=None, engine=None) -> None:
     """Configure OpenTelemetry. No-op if OTLP endpoint not set."""
     if not settings.otel_exporter_otlp_endpoint:
         logger.info("OTLP endpoint not configured, telemetry disabled")
