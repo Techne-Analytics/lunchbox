@@ -39,9 +39,7 @@ jobs:
           ruff format --check .
 
       - name: Security audit
-        run: |
-          pip install pip-audit
-          pip-audit --strict --desc on
+        run: pip-audit --strict --desc on
 
       - name: Test with coverage
         env:
@@ -54,7 +52,12 @@ jobs:
         env:
           DATABASE_URL: postgresql://lunchbox:test@localhost:5432/lunchbox_test
         run: |
-          alembic check 2>/dev/null || echo "No migrations to check yet (initial setup)"
+          if ls alembic/versions/*.py 1>/dev/null 2>&1; then
+            alembic upgrade head
+            alembic check
+          else
+            echo "No migration files yet — skipping alembic check"
+          fi
 
       - name: Verify Docker build
         run: docker build -t lunchbox:test .
