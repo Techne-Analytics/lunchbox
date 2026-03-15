@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}Dashboard — Lunchbox{% endblock %}
+{% block content %}
+<hgroup>
+    <h1>Your Subscriptions</h1>
+    <p>{{ user.name }} ({{ user.email }})</p>
+</hgroup>
+
+<a href="/subscriptions/new" role="button">Add Subscription</a>
+
+{% for sub in subscriptions %}
+<article>
+    <header>
+        <strong>{{ sub.display_name }}</strong>
+        {% if not sub.is_active %}<mark>Inactive</mark>{% endif %}
+    </header>
+    <p>Feed URL: <code>{{ base_url }}/cal/{{ sub.feed_token }}.ics</code>
+        <button onclick="navigator.clipboard.writeText('{{ base_url }}/cal/{{ sub.feed_token }}.ics')">Copy</button>
+    </p>
+    <footer>
+        <a href="/subscriptions/{{ sub.id }}">Settings</a>
+        <button hx-post="/api/sync/trigger/{{ sub.id }}" hx-swap="innerHTML" hx-target="closest article footer">Sync Now</button>
+    </footer>
+</article>
+{% else %}
+<p>No subscriptions yet. Add one to get started.</p>
+{% endfor %}
+{% endblock %}

@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block title %}{{ sub.display_name }} — Lunchbox{% endblock %}
+{% block content %}
+<h1>{{ sub.display_name }}</h1>
+
+<p>Feed URL: <code>{{ base_url }}/cal/{{ sub.feed_token }}.ics</code>
+    <button onclick="navigator.clipboard.writeText('{{ base_url }}/cal/{{ sub.feed_token }}.ics')">Copy</button>
+</p>
+
+<h2>Settings</h2>
+<form hx-patch="/api/subscriptions/{{ sub.id }}" hx-swap="none">
+    <label>Display Name
+        <input type="text" name="display_name" value="{{ sub.display_name }}">
+    </label>
+
+    <label>Grade
+        <input type="text" name="grade" value="{{ sub.grade }}">
+    </label>
+
+    <fieldset>
+        <legend>Include Categories</legend>
+        {% for cat in ["Entrees", "Grains", "Vegetables", "Fruits", "Milk", "Condiments"] %}
+        <label>
+            <input type="checkbox" name="categories" value="{{ cat }}"
+                   {% if not sub.included_categories or cat in sub.included_categories %}checked{% endif %}>
+            {{ cat }}
+        </label>
+        {% endfor %}
+    </fieldset>
+
+    <label>Exclude Items (comma-separated)
+        <input type="text" name="excluded_items"
+               value="{{ (sub.excluded_items or []) | join(', ') }}">
+    </label>
+
+    <label>Alert (minutes before)
+        <input type="number" name="alert_minutes" value="{{ sub.alert_minutes or '' }}">
+    </label>
+
+    <label><input type="checkbox" name="show_as_busy" {% if sub.show_as_busy %}checked{% endif %}> Show as busy</label>
+
+    <button type="submit">Save</button>
+</form>
+
+<h2>Actions</h2>
+<button hx-post="/api/sync/trigger/{{ sub.id }}" hx-swap="innerHTML" hx-target="#sync-result">Sync Now</button>
+<span id="sync-result"></span>
+
+<button hx-post="/api/subscriptions/{{ sub.id }}/regenerate-token" hx-swap="outerHTML" hx-confirm="Regenerate feed URL? You'll need to re-subscribe in your calendar app.">Regenerate Feed URL</button>
+
+<button hx-delete="/api/subscriptions/{{ sub.id }}" hx-confirm="Delete this subscription?" hx-swap="none" onclick="window.location='/dashboard'">Delete</button>
+
+<h2>Sync History</h2>
+<div hx-get="/api/sync/history/{{ sub.id }}" hx-trigger="load" hx-swap="innerHTML">
+    Loading...
+</div>
+
+<p><a href="/subscriptions/{{ sub.id }}/preview">Preview menu data</a></p>
+{% endblock %}

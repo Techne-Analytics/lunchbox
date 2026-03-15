@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}Preview — {{ sub.display_name }}{% endblock %}
+{% block content %}
+<h1>Preview: {{ sub.display_name }}</h1>
+<a href="/subscriptions/{{ sub.id }}">Back to settings</a>
+
+{% for date_str, meals in grouped_items.items() %}
+<article>
+    <header><strong>{{ date_str }}</strong></header>
+    {% for meal_type, items in meals.items() %}
+    <h3>{{ meal_type }}</h3>
+    <ul>
+        {% for item in items %}
+        <li><strong>{{ item.category }}:</strong> {{ item.item_name }}</li>
+        {% endfor %}
+    </ul>
+    {% endfor %}
+</article>
+{% endfor %}
+
+{% if not grouped_items %}
+<p>No menu data yet. Try syncing first.</p>
+{% endif %}
+{% endblock %}
