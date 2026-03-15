@@ -46,8 +46,9 @@ Examples:
 
 - Title: short, imperative (`Add category filters`, not `Added category filters`)
 - Body: reference the issue, describe what changed and why
-- All PRs must pass CI (ruff lint + pytest)
 - All PRs must run pr-toolkit review before merge
+- Pre-push hook enforces lint + unit tests locally
+- CI runs on push to main as a post-merge safety net (integration tests, migrations, Docker build)
 
 ## Dev Setup
 

@@ -8,6 +8,7 @@ os.environ.setdefault("SECRET_KEY", "test-secret-key-not-for-production")
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
+from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import sessionmaker
 
 import lunchbox.models  # noqa: F401 — registers models with Base
@@ -27,10 +28,14 @@ TestSession = sessionmaker(bind=engine)
 def setup_db():
     try:
         Base.metadata.create_all(bind=engine)
-    except Exception:
-        # Postgres not available — DB-dependent tests will be skipped
-        yield
-        return
+    except OperationalError as e:
+        if "could not connect" in str(e) or "Connection refused" in str(e):
+            import warnings
+
+            warnings.warn(f"Postgres not available, DB tests will be skipped: {e}")
+            yield
+            return
+        raise
     yield
     Base.metadata.drop_all(bind=engine)
 
@@ -40,8 +45,10 @@ def db():
     try:
         session = TestSession()
         session.connection()  # verify DB is reachable
-    except Exception:
-        pytest.skip("Postgres not available")
+    except OperationalError as e:
+        if "could not connect" in str(e) or "Connection refused" in str(e):
+            pytest.skip(f"Postgres not available: {e}")
+        raise
     try:
         yield session
     finally:

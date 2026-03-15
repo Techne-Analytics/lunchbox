@@ -1,11 +1,28 @@
 #!/usr/bin/env bash
 set -e
 
-# Prefer bare command, fall back to python -m
-RUFF="ruff"
-PYTEST="pytest"
-command -v ruff >/dev/null 2>&1 || RUFF="python -m ruff"
-command -v pytest >/dev/null 2>&1 || PYTEST="python -m pytest"
+# Find ruff and pytest, preferring bare commands, then python3 -m, then python -m
+if command -v ruff >/dev/null 2>&1; then
+    RUFF="ruff"
+elif command -v python3 >/dev/null 2>&1; then
+    RUFF="python3 -m ruff"
+elif command -v python >/dev/null 2>&1; then
+    RUFF="python -m ruff"
+else
+    echo "ERROR: ruff not found. Install with: pip install -e '.[dev]'"
+    exit 1
+fi
+
+if command -v pytest >/dev/null 2>&1; then
+    PYTEST="pytest"
+elif command -v python3 >/dev/null 2>&1; then
+    PYTEST="python3 -m pytest"
+elif command -v python >/dev/null 2>&1; then
+    PYTEST="python -m pytest"
+else
+    echo "ERROR: pytest not found. Install with: pip install -e '.[dev]'"
+    exit 1
+fi
 
 echo "=== Pre-push checks ==="
 
@@ -14,6 +31,6 @@ $RUFF check .
 $RUFF format --check .
 
 echo "→ Unit tests"
-$PYTEST tests/unit/ -x -q
+$PYTEST tests/unit/ -x --tb=short
 
 echo "=== All checks passed ==="
