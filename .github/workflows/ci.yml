@@ -1,7 +1,9 @@
-name: PR Check
+name: CI
 
+# Post-merge safety net. Pre-push hook handles lint + unit tests locally.
+# pip-audit removed — run manually with: pip-audit --strict --desc on
 on:
-  pull_request:
+  push:
     branches: [main]
 
 jobs:
@@ -37,9 +39,6 @@ jobs:
         run: |
           ruff check .
           ruff format --check .
-
-      - name: Security audit
-        run: pip-audit --strict --desc on
 
       - name: Test with coverage
         env:

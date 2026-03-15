@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+set -e
+
+# Find a working Python with ruff and pytest installed
+find_python_tool() {
+    local tool="$1"
+    # Try bare command first
+    if command -v "$tool" >/dev/null 2>&1 && "$tool" --version >/dev/null 2>&1; then
+        echo "$tool"
+        return
+    fi
+    # Try python -m (check it actually works)
+    for py in python python3; do
+        if command -v "$py" >/dev/null 2>&1 && "$py" -m "$tool" --version >/dev/null 2>&1; then
+            echo "$py -m $tool"
+            return
+        fi
+    done
+    echo ""
+}
+
+RUFF=$(find_python_tool ruff)
+PYTEST=$(find_python_tool pytest)
+
+if [ -z "$RUFF" ]; then
+    echo "ERROR: ruff not found. Install with: pip install -e '.[dev]'"
+    exit 1
+fi
+if [ -z "$PYTEST" ]; then
+    echo "ERROR: pytest not found. Install with: pip install -e '.[dev]'"
+    exit 1
+fi
+
+echo "=== Pre-push checks ==="
+
+echo "→ Lint"
+$RUFF check .
+$RUFF format --check .
+
+echo "→ Unit tests"
+$PYTEST tests/unit/ -x --tb=short
+
+echo "=== All checks passed ==="
