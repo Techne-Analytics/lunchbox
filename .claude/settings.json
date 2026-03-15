@@ -1,10 +1,10 @@
 {
   "permissions": {
     "deny": [
-      "Edit(file_path=**/client_secret.json)",
-      "Edit(file_path=**/token.json)",
-      "Write(file_path=**/client_secret.json)",
-      "Write(file_path=**/token.json)",
+      "Edit(file_path:**/client_secret.json)",
+      "Edit(file_path:**/token.json)",
+      "Write(file_path:**/client_secret.json)",
+      "Write(file_path:**/token.json)",
       "Bash(rm -rf:*)",
       "Bash(docker compose down -v:*)",
       "Bash(git push --force:*)"
