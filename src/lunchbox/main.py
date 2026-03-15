@@ -8,14 +8,18 @@ from starlette.middleware.sessions import SessionMiddleware
 from lunchbox.api.router import api_router
 from lunchbox.auth.router import router as auth_router
 from lunchbox.config import settings
+from lunchbox.db import engine
+from lunchbox.scheduler.jobs import start_scheduler, stop_scheduler
+from lunchbox.telemetry.setup import setup_telemetry
 from lunchbox.web.router import router as web_router
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup: telemetry, scheduler — added in later tasks
+    setup_telemetry(app=app, engine=engine)
+    start_scheduler()
     yield
-    # Shutdown
+    stop_scheduler()
 
 
 app = FastAPI(title="Lunchbox", lifespan=lifespan)
