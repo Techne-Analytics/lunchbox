@@ -33,11 +33,7 @@ class TestSyncAll:
 
         # Filter to only logs for OUR subscriptions (DB persists across tests)
         our_ids = {sub1.id, sub2.id}
-        logs = (
-            db.query(SyncLog)
-            .filter(SyncLog.subscription_id.in_(our_ids))
-            .all()
-        )
+        logs = db.query(SyncLog).filter(SyncLog.subscription_id.in_(our_ids)).all()
         assert len(logs) == 2
 
     def test_only_active_subscriptions_synced(self, db):
