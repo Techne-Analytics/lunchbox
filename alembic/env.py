@@ -5,6 +5,7 @@ from sqlalchemy import engine_from_config, pool
 
 from lunchbox.config import settings
 from lunchbox.db import Base
+import lunchbox.models  # noqa: F401 — registers models with Base
 
 config = context.config
 config.set_main_option("sqlalchemy.url", settings.database_url)
