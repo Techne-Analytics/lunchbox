@@ -46,8 +46,9 @@ Examples:
 
 - Title: short, imperative (`Add category filters`, not `Added category filters`)
 - Body: reference the issue, describe what changed and why
-- All PRs must pass CI (ruff lint + pytest)
 - All PRs must run pr-toolkit review before merge
+- Pre-push hook enforces lint + unit tests locally
+- CI runs on push to main as a post-merge safety net (integration tests, migrations, Docker build)
 
 ## Dev Setup
 
@@ -57,6 +58,9 @@ docker compose up -d postgres
 
 # Install dependencies
 pip install -e ".[dev]"
+
+# Enable pre-push hook (lint + unit tests before every push)
+git config core.hooksPath .githooks
 
 # Run migrations
 alembic upgrade head
@@ -68,6 +72,8 @@ pytest
 ruff check .
 ruff format .
 ```
+
+The pre-push hook runs `ruff check`, `ruff format --check`, and `pytest tests/unit/` before every push. This catches lint and unit test failures locally instead of burning CI minutes. CI still runs the full integration test suite against Postgres.
 
 ## Testing
 
