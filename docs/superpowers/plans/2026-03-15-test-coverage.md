@@ -185,14 +185,11 @@ def authenticated_client(db):
 
     user = create_user(db)
 
-    app.dependency_overrides[get_db] = lambda: (yield db).__next__() or db
-    app.dependency_overrides[get_current_user] = lambda: user
-
-    # Re-override get_db properly
     def override_get_db():
         yield db
 
     app.dependency_overrides[get_db] = override_get_db
+    app.dependency_overrides[get_current_user] = lambda: user
 
     with TestClient(app) as c:
         yield c, user
@@ -1143,14 +1140,22 @@ def test_feed_inactive_subscription(client, db):
 
 
 def test_feed_etag_consistency(client, db):
-    """Same data produces same ETag."""
+    """Same data produces same ETag when time is frozen."""
+    from unittest.mock import patch
+    from datetime import datetime, timezone
+
     user = create_user(db)
     sub = create_subscription(db, user)
     create_menu_item(db, sub)
     db.commit()
 
-    r1 = client.get(f"/cal/{sub.feed_token}.ics")
-    r2 = client.get(f"/cal/{sub.feed_token}.ics")
+    frozen = datetime(2026, 3, 16, 12, 0, 0, tzinfo=timezone.utc)
+    with patch("lunchbox.api.feeds.datetime") as mock_dt:
+        mock_dt.now.return_value = frozen
+        mock_dt.side_effect = lambda *a, **kw: datetime(*a, **kw)
+        r1 = client.get(f"/cal/{sub.feed_token}.ics")
+        r2 = client.get(f"/cal/{sub.feed_token}.ics")
+
     assert r1.headers["ETag"] == r2.headers["ETag"]
 ```
 
@@ -1246,12 +1251,13 @@ def test_callback_updates_returning_user(client, db):
 
 
 def test_callback_race_condition(client, db):
-    """IntegrityError on insert falls back to SELECT."""
-    from unittest.mock import AsyncMock, patch
-    from sqlalchemy.exc import IntegrityError as SAIntegrityError
+    """IntegrityError on insert falls back to SELECT.
+    Simulate by mocking db.commit to raise IntegrityError on first call,
+    forcing the fallback-to-SELECT path."""
+    from unittest.mock import AsyncMock, patch, MagicMock
 
-    # Pre-create the user to force IntegrityError
-    create_user(db, google_id="race-condition-123")
+    # Pre-create user so the fallback SELECT finds them
+    existing = create_user(db, google_id="race-condition-123", email="race@example.com")
     db.commit()
 
     mock_token = {
@@ -1262,23 +1268,40 @@ def test_callback_race_condition(client, db):
         }
     }
 
-    # The callback will try to INSERT (misses the SELECT due to timing),
-    # hit IntegrityError, rollback, then SELECT. We simulate by having
-    # the user already exist but the first query returning None.
-    original_first = db.query(User).filter(User.google_id == "race-condition-123").first
-
-    call_count = 0
-
-    def patched_query_chain(*args, **kwargs):
-        # This is tricky to mock perfectly. Instead, just verify the
-        # endpoint handles the case without 500.
-        pass
-
     with patch("lunchbox.auth.router.oauth") as mock_oauth:
         mock_oauth.google.authorize_access_token = AsyncMock(return_value=mock_token)
-        response = client.get("/auth/callback", follow_redirects=False)
 
-    # Should redirect to dashboard, not error
+        # Patch the db session's query to return None on first call (simulating
+        # the race: another request created the user between our SELECT and INSERT)
+        original_get_db = None
+
+        # The simplest way to test this: mock the first query().filter().first()
+        # to return None (so callback tries INSERT), then let the real DB raise
+        # IntegrityError (user already exists), then the rollback+re-SELECT
+        # should find the existing user.
+        # We need to override get_db to return a session that lies on first query.
+        from sqlalchemy.orm import Session as SASession
+        from lunchbox.models import User as UserModel
+
+        query_call_count = 0
+        real_db_query = db.query
+
+        def patched_query(*args, **kwargs):
+            nonlocal query_call_count
+            result = real_db_query(*args, **kwargs)
+            if args and args[0] is UserModel:
+                query_call_count += 1
+                if query_call_count == 1:
+                    # First SELECT returns None — simulates race window
+                    mock_result = MagicMock()
+                    mock_result.filter.return_value.first.return_value = None
+                    return mock_result
+            return result
+
+        with patch.object(db, "query", side_effect=patched_query):
+            response = client.get("/auth/callback", follow_redirects=False)
+
+    # Should redirect to dashboard (IntegrityError caught, fallback SELECT worked)
     assert response.status_code in (302, 307)
     assert "/dashboard" in response.headers.get("location", "")
 
@@ -1340,7 +1363,20 @@ def stop_scheduler() -> None:
 ```python
 from unittest.mock import MagicMock, patch
 
+import pytest
+
+import lunchbox.scheduler.jobs as jobs_module
 from lunchbox.scheduler.jobs import daily_sync_job, start_scheduler, stop_scheduler
+
+
+@pytest.fixture(autouse=True)
+def reset_scheduler():
+    """Ensure _scheduler is None before and after each test."""
+    jobs_module._scheduler = None
+    yield
+    if jobs_module._scheduler and jobs_module._scheduler.running:
+        jobs_module._scheduler.shutdown(wait=False)
+    jobs_module._scheduler = None
 
 
 class TestScheduler:
@@ -1440,8 +1476,22 @@ def test_landing_unauthenticated(client):
     assert response.status_code == 200
 
 
-def test_landing_authenticated_redirects(authenticated_client):
-    client, _ = authenticated_client
+def test_landing_with_session_redirects(client, db):
+    """Landing page checks request.session['user_id'] directly (not get_current_user).
+    Use the auth callback to establish a real session, then verify redirect."""
+    from unittest.mock import AsyncMock, patch
+    from tests.factories import create_user
+
+    mock_token = {
+        "userinfo": {"sub": "landing-test-id", "email": "t@t.com", "name": "T"},
+    }
+
+    with patch("lunchbox.auth.router.oauth") as mock_oauth:
+        mock_oauth.google.authorize_access_token = AsyncMock(return_value=mock_token)
+        # This sets session["user_id"] via the callback
+        client.get("/auth/callback", follow_redirects=False)
+
+    # Now landing page should see the session and redirect
     response = client.get("/", follow_redirects=False)
     assert response.status_code in (302, 307)
     assert "/dashboard" in response.headers.get("location", "")
