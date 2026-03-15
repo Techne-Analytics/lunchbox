@@ -64,6 +64,7 @@ def _build_calendar(subscription: Subscription, items: list[MenuItem]) -> Calend
         event = Event()
         event.add("summary", summary)
         event.add("description", "\n".join(description_parts))
+        # TODO: support timed events when subscription.event_type == "timed"
         event.add("dtstart", menu_date)
         # All-day events: DTEND is exclusive, so next day
         event.add("dtend", menu_date + timedelta(days=1))
@@ -87,11 +88,11 @@ def _build_calendar(subscription: Subscription, items: list[MenuItem]) -> Calend
 
 
 @router.get("/cal/{feed_token}.ics")
-def get_feed(feed_token: str, db: Session = Depends(get_db)):
+def get_feed(feed_token: str, db: Session = Depends(get_db)) -> Response:
     try:
         token_uuid = uuid.UUID(feed_token)
     except ValueError:
-        raise HTTPException(status_code=404, detail="Feed not found")
+        raise HTTPException(status_code=404, detail="Feed not found") from None
 
     subscription = (
         db.query(Subscription)

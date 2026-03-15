@@ -105,3 +105,13 @@ class TestBuildCalendar:
 
         assert "PB&J" not in ical
         assert "Pizza" in ical
+
+    def test_alarm_when_alert_minutes_set(self):
+        sub = _make_subscription(alert_minutes=15)
+        items = [
+            _make_item(sub.id, date(2026, 3, 16), "Lunch", "Entrees", "Pizza"),
+        ]
+        cal = _build_calendar(sub, items)
+        ical = cal.to_ical().decode()
+        assert "VALARM" in ical
+        assert "TRIGGER" in ical
