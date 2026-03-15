@@ -1,0 +1,29 @@
+{
+  "recommendations": [
+    // ── Core Python ──────────────────────────────────────────────
+    "ms-python.python",
+    "ms-python.vscode-pylance",
+    "charliermarsh.ruff",
+
+    // ── AI assistants ────────────────────────────────────────────
+    "github.copilot",
+    "github.copilot-chat",
+
+    // ── Web / templates ──────────────────────────────────────────
+    "samuelcolvin.jinjahtml",
+    "otovo-oss.htmx-tags",
+
+    // ── Infrastructure ───────────────────────────────────────────
+    "ms-azuretools.vscode-docker",
+    "ms-vscode-remote.remote-containers",
+
+    // ── Data / SQL ───────────────────────────────────────────────
+    "mtxr.sqltools",
+    "mtxr.sqltools-driver-pg",
+
+    // ── Quality of life ──────────────────────────────────────────
+    "eamodio.gitlens",
+    "EditorConfig.EditorConfig",
+    "tamasfe.even-better-toml"
+  ]
+}

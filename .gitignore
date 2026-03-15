@@ -13,10 +13,14 @@ tasks_data/
 
 # Database
 *.sqlite
+*.sqlite-wal
+*.sqlite-shm
 
 # IDE
-.vscode/
 .idea/
+# Share VSCode workspace config, but ignore personal state
+.vscode/*.log
+.vscode/.ropeproject/
 
 # OS
 .DS_Store
