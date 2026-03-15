@@ -7,7 +7,7 @@ COPY pyproject.toml .
 RUN mkdir -p src/lunchbox && touch src/lunchbox/__init__.py && \
     pip install --no-cache-dir .
 
-# Copy source and reinstall package metadata only (no new deps needed)
+# Copy source and reinstall without re-fetching deps (layer caching optimization)
 COPY . .
 RUN pip install --no-cache-dir --no-deps .
 

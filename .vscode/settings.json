@@ -1,6 +1,6 @@
 {
   // ── Python / Ruff ──────────────────────────────────────────────
-  "python.defaultInterpreterPath": "${workspaceFolder}/.venv/bin/python",
+  "python.defaultInterpreterPath": "${workspaceFolder}/.venv",
   "python.analysis.typeCheckingMode": "basic",
   "python.analysis.autoImportCompletions": true,
   "python.analysis.inlayHints.functionReturnTypes": true,
@@ -70,6 +70,6 @@
     "PYTHONDONTWRITEBYTECODE": "1"
   },
 
-  // ── SQLAlchemy / Jinja2 ────────────────────────────────────────
+  // ── Pylance / import resolution ────────────────────────────────
   "python.analysis.extraPaths": ["${workspaceFolder}/src"]
 }
