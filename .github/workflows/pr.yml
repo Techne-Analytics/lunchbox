@@ -38,10 +38,28 @@ jobs:
           ruff check .
           ruff format --check .
 
-      - name: Test
+      - name: Security audit
+        run: pip-audit --strict --desc on
+
+      - name: Test with coverage
         env:
           SECRET_KEY: test-ci-secret
           TEST_DATABASE_URL: postgresql://lunchbox:test@localhost:5432/lunchbox_test
-        run: pytest -v
+        run: |
+          pytest -v --cov=lunchbox --cov-report=term-missing --cov-fail-under=60
+
+      - name: Check Alembic migrations
+        env:
+          DATABASE_URL: postgresql://lunchbox:test@localhost:5432/lunchbox_test
+        run: |
+          if ls alembic/versions/*.py 1>/dev/null 2>&1; then
+            alembic upgrade head
+            alembic check
+          else
+            echo "No migration files yet — skipping alembic check"
+          fi
+
+      - name: Verify Docker build
+        run: docker build -t lunchbox:test .
 
       # pr-toolkit review is required before merge — run via Claude Code on each PR.
