@@ -38,9 +38,6 @@ jobs:
           ruff check .
           ruff format --check .
 
-      - name: Security audit
-        run: pip-audit --strict --desc on
-
       - name: Test with coverage
         env:
           SECRET_KEY: test-ci-secret

@@ -58,6 +58,9 @@ docker compose up -d postgres
 # Install dependencies
 pip install -e ".[dev]"
 
+# Enable pre-push hook (lint + unit tests before every push)
+git config core.hooksPath .githooks
+
 # Run migrations
 alembic upgrade head
 
@@ -68,6 +71,8 @@ pytest
 ruff check .
 ruff format .
 ```
+
+The pre-push hook runs `ruff check`, `ruff format --check`, and `pytest tests/unit/` before every push. This catches lint and unit test failures locally instead of burning CI minutes. CI still runs the full integration test suite against Postgres.
 
 ## Testing
 

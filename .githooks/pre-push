@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+set -e
+
+# Prefer bare command, fall back to python -m
+RUFF="ruff"
+PYTEST="pytest"
+command -v ruff >/dev/null 2>&1 || RUFF="python -m ruff"
+command -v pytest >/dev/null 2>&1 || PYTEST="python -m pytest"
+
+echo "=== Pre-push checks ==="
+
+echo "→ Lint"
+$RUFF check .
+$RUFF format --check .
+
+echo "→ Unit tests"
+$PYTEST tests/unit/ -x -q
+
+echo "=== All checks passed ==="
