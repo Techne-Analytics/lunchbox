@@ -50,5 +50,7 @@ def start_scheduler() -> None:
 
 
 def stop_scheduler() -> None:
+    global _scheduler  # noqa: PLW0603
     if _scheduler:
         _scheduler.shutdown(wait=False)
+        _scheduler = None
