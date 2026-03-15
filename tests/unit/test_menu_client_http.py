@@ -1,0 +1,90 @@
+from datetime import date
+
+import httpx
+import pytest
+import respx
+
+from lunchbox.sync.menu_client import SchoolCafeClient
+
+
+BASE_URL = "https://webapis.schoolcafe.com/api"
+
+
+class TestGetDailyMenu:
+    @respx.mock
+    def test_successful_fetch(self, schoolcafe_fixture):
+        data = schoolcafe_fixture("normal_lunch")
+        respx.get(f"{BASE_URL}/CalendarView/GetDailyMenuitemsByGrade").mock(
+            return_value=httpx.Response(200, json=data)
+        )
+
+        with SchoolCafeClient() as client:
+            items = client.get_daily_menu("s1", date(2026, 3, 16), "Lunch", "Trad", "05")
+
+        assert len(items) > 0
+        assert items[0].item_name == "BBQ Chicken Drumstick"
+        assert items[0].category == "Entrees"
+
+    @respx.mock
+    def test_schema_drift_still_parses(self, schoolcafe_fixture):
+        data = schoolcafe_fixture("drifted_field_names")
+        respx.get(f"{BASE_URL}/CalendarView/GetDailyMenuitemsByGrade").mock(
+            return_value=httpx.Response(200, json=data)
+        )
+
+        with SchoolCafeClient() as client:
+            items = client.get_daily_menu("s1", date(2026, 3, 16), "Lunch", "Trad", "05")
+
+        assert len(items) > 0
+
+    @respx.mock
+    def test_http_500_raises(self):
+        respx.get(f"{BASE_URL}/CalendarView/GetDailyMenuitemsByGrade").mock(
+            return_value=httpx.Response(500)
+        )
+
+        with SchoolCafeClient() as client:
+            with pytest.raises(httpx.HTTPStatusError):
+                client.get_daily_menu("s1", date(2026, 3, 16), "Lunch", "Trad", "05")
+
+    @respx.mock
+    def test_timeout_raises(self):
+        respx.get(f"{BASE_URL}/CalendarView/GetDailyMenuitemsByGrade").mock(
+            side_effect=httpx.TimeoutException("timed out")
+        )
+
+        with SchoolCafeClient() as client:
+            with pytest.raises(httpx.TimeoutException):
+                client.get_daily_menu("s1", date(2026, 3, 16), "Lunch", "Trad", "05")
+
+
+class TestSearchSchools:
+    @respx.mock
+    def test_search_returns_schools(self, schoolcafe_fixture):
+        districts = schoolcafe_fixture("search_districts")
+        schools = schoolcafe_fixture("search_schools")
+
+        respx.get(f"{BASE_URL}/GetISDByShortName").mock(
+            return_value=httpx.Response(200, json=districts)
+        )
+        respx.get(f"{BASE_URL}/GetSchoolsList").mock(
+            return_value=httpx.Response(200, json=schools)
+        )
+
+        with SchoolCafeClient() as client:
+            result = client.search_schools("springfield")
+
+        assert len(result) == 2
+        assert result[0].school_id == "school-001"
+        assert result[0].school_name == "Springfield Elementary"
+
+    @respx.mock
+    def test_search_empty_districts(self):
+        respx.get(f"{BASE_URL}/GetISDByShortName").mock(
+            return_value=httpx.Response(200, json=[])
+        )
+
+        with SchoolCafeClient() as client:
+            result = client.search_schools("nonexistent")
+
+        assert result == []
