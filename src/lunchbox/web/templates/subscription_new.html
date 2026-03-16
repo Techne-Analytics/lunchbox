@@ -11,9 +11,11 @@
     </label>
 
     <label>School
-        <select name="school_id" id="school-select" required>
+        <select name="school_id" id="school-select" required
+                onchange="document.getElementById('school-name').value = this.options[this.selectedIndex].dataset.name || ''">
             <option value="">Search by district first</option>
         </select>
+        <input type="hidden" name="school_name" id="school-name" value="">
     </label>
 
     <label>Grade

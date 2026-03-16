@@ -1,5 +1,7 @@
 from pathlib import Path
 
+from markupsafe import escape
+
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from fastapi.templating import Jinja2Templates
@@ -59,19 +61,7 @@ async def create_subscription_web(
 ):
     form = await request.form()
     school_id = form.get("school_id", "")
-    # Look up school name from the SchoolCafe API
-    school_name = school_id
-    try:
-        with SchoolCafeClient() as client:
-            q = form.get("q", "")
-            if q:
-                schools = client.search_schools(q)
-                for s in schools:
-                    if s.school_id == school_id:
-                        school_name = s.school_name
-                        break
-    except Exception:
-        pass
+    school_name = form.get("school_name", school_id)
 
     meals = form.getlist("meals")
     meal_configs = []
@@ -89,7 +79,10 @@ async def create_subscription_web(
     excluded_raw = form.get("excluded_items", "")
     excluded_items = [x.strip() for x in excluded_raw.split(",") if x.strip()] or None
     alert_str = form.get("alert_minutes", "")
-    alert_minutes = int(alert_str) if alert_str else None
+    try:
+        alert_minutes = int(alert_str) if alert_str else None
+    except ValueError:
+        alert_minutes = None
     show_as_busy = "show_as_busy" in form
 
     sub = Subscription(
@@ -148,7 +141,9 @@ def school_options(q: str):
     if not schools:
         return Response('<option value="">No schools found</option>')
     options = "".join(
-        f'<option value="{s.school_id}">{s.school_name}</option>' for s in schools
+        f'<option value="{escape(s.school_id)}" data-name="{escape(s.school_name)}">'
+        f"{escape(s.school_name)}</option>"
+        for s in schools
     )
     return Response(options)
 
