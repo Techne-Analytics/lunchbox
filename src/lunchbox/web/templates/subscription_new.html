@@ -3,17 +3,19 @@
 {% block content %}
 <h1>Add Subscription</h1>
 
-<form hx-post="/subscriptions/create" hx-swap="innerHTML" hx-target="body">
+<form method="post" action="/subscriptions/create">
     <label>District Code
-        <input type="text" name="district" placeholder="DPS" required
-               hx-get="/api/schools" hx-trigger="change" hx-target="#school-select"
-               hx-include="[name='district']" hx-swap="innerHTML">
+        <input type="text" name="q" placeholder="DPS" required
+               hx-get="/web/schools/options" hx-trigger="change" hx-target="#school-select"
+               hx-include="[name='q']" hx-swap="innerHTML">
     </label>
 
     <label>School
-        <select name="school_id" id="school-select" required>
+        <select name="school_id" id="school-select" required
+                onchange="document.getElementById('school-name').value = this.options[this.selectedIndex].dataset.name || ''">
             <option value="">Search by district first</option>
         </select>
+        <input type="hidden" name="school_name" id="school-name" value="">
     </label>
 
     <label>Grade

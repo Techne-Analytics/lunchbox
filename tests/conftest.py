@@ -29,10 +29,20 @@ def setup_db():
     try:
         Base.metadata.create_all(bind=engine)
     except OperationalError as e:
-        if "could not connect" in str(e) or "Connection refused" in str(e):
+        msg = str(e).lower()
+        if any(
+            s in msg
+            for s in (
+                "connection refused",
+                "could not connect",
+                "could not translate",
+                "authentication failed",
+                "password authentication failed",
+            )
+        ):
             import warnings
 
-            warnings.warn(f"Postgres not available, DB tests will be skipped: {e}")
+            warnings.warn(f"Test DB not available, DB tests will be skipped: {e}")
             yield
             return
         raise
@@ -46,8 +56,18 @@ def db():
         session = TestSession()
         session.connection()  # verify DB is reachable
     except OperationalError as e:
-        if "could not connect" in str(e) or "Connection refused" in str(e):
-            pytest.skip(f"Postgres not available: {e}")
+        msg = str(e).lower()
+        if any(
+            s in msg
+            for s in (
+                "connection refused",
+                "could not connect",
+                "could not translate",
+                "authentication failed",
+                "password authentication failed",
+            )
+        ):
+            pytest.skip(f"Test DB not available: {e}")
         raise
     try:
         yield session
