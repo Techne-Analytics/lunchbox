@@ -21,10 +21,10 @@ def setup_telemetry(app=None, engine=None) -> None:
         logger.info("OTLP endpoint not configured, telemetry disabled")
         return
 
-    from opentelemetry.exporter.otlp.proto.grpc.metric_exporter import (
+    from opentelemetry.exporter.otlp.proto.http.metric_exporter import (
         OTLPMetricExporter,
     )
-    from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import (
+    from opentelemetry.exporter.otlp.proto.http.trace_exporter import (
         OTLPSpanExporter,
     )
 
