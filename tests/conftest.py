@@ -29,11 +29,23 @@ def setup_db():
     try:
         Base.metadata.create_all(bind=engine)
     except OperationalError as e:
-        import warnings
+        msg = str(e).lower()
+        if any(
+            s in msg
+            for s in (
+                "connection refused",
+                "could not connect",
+                "could not translate",
+                "authentication failed",
+                "password authentication failed",
+            )
+        ):
+            import warnings
 
-        warnings.warn(f"Test DB not available, DB tests will be skipped: {e}")
-        yield
-        return
+            warnings.warn(f"Test DB not available, DB tests will be skipped: {e}")
+            yield
+            return
+        raise
     yield
     Base.metadata.drop_all(bind=engine)
 
@@ -44,7 +56,19 @@ def db():
         session = TestSession()
         session.connection()  # verify DB is reachable
     except OperationalError as e:
-        pytest.skip(f"Test DB not available: {e}")
+        msg = str(e).lower()
+        if any(
+            s in msg
+            for s in (
+                "connection refused",
+                "could not connect",
+                "could not translate",
+                "authentication failed",
+                "password authentication failed",
+            )
+        ):
+            pytest.skip(f"Test DB not available: {e}")
+        raise
     try:
         yield session
     finally:

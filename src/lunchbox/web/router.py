@@ -61,7 +61,7 @@ async def create_subscription_web(
 ):
     form = await request.form()
     school_id = form.get("school_id", "")
-    school_name = form.get("school_name", school_id)
+    school_name = form.get("school_name") or school_id
 
     meals = form.getlist("meals")
     meal_configs = []
