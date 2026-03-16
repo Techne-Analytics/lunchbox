@@ -56,7 +56,7 @@ def _build_calendar(subscription: Subscription, items: list[MenuItem]) -> Calend
 
         description_parts = []
         for cat, names in categories.items():
-            description_parts.append(f"**{cat}:**")
+            description_parts.append(f"{cat}:")
             for name in names:
                 description_parts.append(f"- {name}")
             description_parts.append("")
