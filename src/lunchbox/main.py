@@ -28,3 +28,24 @@ app.include_router(web_router)
 @app.get("/health")
 def health() -> dict:
     return {"status": "ok"}
+
+
+@app.get("/debug")
+def debug() -> dict:
+    """Temporary debug endpoint — remove after deployment verified."""
+    import os
+    from pathlib import Path
+
+    web_dir = Path(__file__).parent / "web"
+    templates_dir = web_dir / "templates"
+    return {
+        "cwd": os.getcwd(),
+        "file": str(Path(__file__)),
+        "web_dir_exists": web_dir.exists(),
+        "templates_dir_exists": templates_dir.exists(),
+        "templates_files": [f.name for f in templates_dir.iterdir()]
+        if templates_dir.exists()
+        else [],
+        "static_dir": str(web_dir / "static"),
+        "static_exists": (web_dir / "static").exists(),
+    }
