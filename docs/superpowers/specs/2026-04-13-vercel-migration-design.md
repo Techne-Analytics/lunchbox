@@ -153,14 +153,11 @@ All guardrails log warnings via OTel so they show up in Grafana.
 
 ```json
 {
-  "functions": {
-    "src/lunchbox/main.py": {
-      "runtime": "@vercel/python",
-      "maxDuration": 60
-    }
-  },
-  "rewrites": [
-    { "source": "/(.*)", "destination": "/src/lunchbox/main.py" }
+  "builds": [
+    { "src": "src/lunchbox/main.py", "use": "@vercel/python" }
+  ],
+  "routes": [
+    { "src": "/(.*)", "dest": "src/lunchbox/main.py" }
   ],
   "crons": [
     { "path": "/api/sync/cron", "schedule": "0 12 * * 1-5" }
@@ -168,7 +165,7 @@ All guardrails log warnings via OTel so they show up in Grafana.
 }
 ```
 
-Uses modern Vercel config format (`functions`/`rewrites` instead of legacy `builds`/`routes`).
+Uses legacy `builds`/`routes` format — the modern `functions`/`rewrites` format returned runtime version errors during deployment.
 
 ### Dependencies
 

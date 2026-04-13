@@ -1,7 +1,10 @@
 # Lunchbox: Design Spec
 
+> **ARCHIVED — This spec documents the pre-Vercel migration architecture (Docker Compose + APScheduler).**
+> **Current architecture:** See [2026-04-13-vercel-migration-design.md](2026-04-13-vercel-migration-design.md)
+
 **Date:** 2026-03-14
-**Status:** Approved
+**Status:** Superseded by Vercel migration (2026-04-13)
 **Goal:** Rebuild the school lunch menu calendar sync as a proper web app with iCal feed output, observability, and a path to multi-user.
 
 ## Context
