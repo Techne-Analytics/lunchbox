@@ -233,6 +233,46 @@ Point `lunchbox.techneanalytics.io` CNAME to `cname.vercel-dns.com` in Cloudflar
 - ~2 subscription cap tests added
 - All other tests unchanged (~95 tests remain as-is)
 
+## Follow-up Phase: Review & Harden
+
+After the migration is deployed and working, run a review phase before considering the project stable.
+
+### Documentation review
+
+- Audit all docs (`CLAUDE.md`, `CONTRIBUTING.md`, `README.md`, design specs) against actual deployed state
+- Remove references to Docker, APScheduler, localhost
+- Document the Vercel deploy workflow, Neon setup, cron monitoring
+- Verify all code comments are current (no stale TODOs, no references to removed code)
+
+### Test coverage review
+
+- Run coverage report against deployed architecture
+- Verify cron endpoint tests cover auth, guardrails, and happy path
+- Verify subscription cap tests cover per-user and global limits
+- Check that removed scheduler tests don't leave gaps
+- Ensure integration tests work against Neon (or a test Neon branch) in CI
+
+### SchoolCafe API audit
+
+The entire app depends on SchoolCafe's undocumented API. This review ensures we've covered all the endpoints we need and that our self-healing parsing is actually resilient.
+
+**Endpoint inventory:**
+- `GET /CalendarView/GetDailyMenuitemsByGrade` — menu items by date/school/meal/grade. Do we need any other endpoints? Are there bulk endpoints we're missing that could reduce API calls?
+- `GET /GetISDByShortName` — district search by short name
+- `GET /GetSchoolsList` — schools in a district
+
+**Self-healing validation:**
+- Capture fresh API responses and compare against our stored fixtures (`tests/fixtures/schoolcafe/`). Have the response shapes drifted since we captured them?
+- Test `_extract_item_name` fallback chain against real current responses — is the primary field still `MenuItemDescription`?
+- Test `_normalize_category` against real current categories — are there new categories we don't handle?
+- Test `_detect_drift` — does it actually detect the kinds of changes SchoolCafe has made historically?
+- Consider adding a periodic "canary" test that hits the live API (outside of CI) to detect schema changes before they break the sync
+
+**Rate limiting / reliability:**
+- Does SchoolCafe rate-limit? We make ~14 API calls per subscription per sync. At 20 subscriptions, that's 280 calls in quick succession.
+- What happens when SchoolCafe is down? Do we retry, or just log and move on? Is the current behavior (log error, continue to next date) sufficient?
+- Should we add backoff/retry for transient failures (HTTP 429, 503)?
+
 ## Out of Scope
 
 - Multi-region deployment
