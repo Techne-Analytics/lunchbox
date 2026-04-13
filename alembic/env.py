@@ -13,6 +13,7 @@ config = context.config
 # Falls back to DATABASE_URL for local dev.
 database_url = (
     os.environ.get("DIRECT_DATABASE_URL")
+    or os.environ.get("DATABASE_URL_UNPOOLED")
     or os.environ.get("DATABASE_URL")
     or config.get_main_option("sqlalchemy.url")
 )
