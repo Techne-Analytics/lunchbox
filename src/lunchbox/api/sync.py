@@ -122,12 +122,24 @@ def cron_sync(request: Request, db: Session = Depends(get_db)) -> dict:
         return {"status": "skipped", "reason": "max_menu_items reached"}
 
     # Run sync
-    with SchoolCafeClient() as client:
-        sync_all(
-            db,
-            client,
-            days=settings.days_to_fetch,
-            skip_weekends=settings.skip_weekends,
-        )
+    try:
+        with SchoolCafeClient() as client:
+            sync_all(
+                db,
+                client,
+                days=settings.days_to_fetch,
+                skip_weekends=settings.skip_weekends,
+            )
+    except Exception:
+        logger.exception("Cron sync failed")
+        raise HTTPException(status_code=500, detail="Sync failed")
 
-    return {"status": "ok"}
+    # Check if any syncs actually succeeded
+    new_logs = db.query(SyncLog).filter(SyncLog.started_at >= today_start).all()
+    failed = sum(1 for log in new_logs if log.status == "error")
+    total = len(new_logs) - syncs_today  # only count logs from this run
+    if total > 0 and failed == total:
+        logger.error("All %d syncs failed in cron run", total)
+        raise HTTPException(status_code=500, detail=f"All {total} syncs failed")
+
+    return {"status": "ok", "synced": total - failed, "failed": failed}

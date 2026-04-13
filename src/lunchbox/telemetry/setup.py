@@ -22,26 +22,31 @@ def setup_telemetry(engine=None) -> None:
         logger.info("OTLP endpoint not configured, telemetry disabled")
         return
 
-    from opentelemetry.exporter.otlp.proto.http.trace_exporter import (
-        OTLPSpanExporter,
-    )
+    try:
+        from opentelemetry.exporter.otlp.proto.http.trace_exporter import (
+            OTLPSpanExporter,
+        )
 
-    resource = Resource.create({"service.name": settings.otel_service_name})
+        resource = Resource.create({"service.name": settings.otel_service_name})
 
-    # Traces — SimpleSpanProcessor for serverless (synchronous export per span)
-    tracer_provider = TracerProvider(resource=resource)
-    tracer_provider.add_span_processor(SimpleSpanProcessor(OTLPSpanExporter()))
-    trace.set_tracer_provider(tracer_provider)
+        # Traces — SimpleSpanProcessor for serverless (synchronous export per span)
+        tracer_provider = TracerProvider(resource=resource)
+        tracer_provider.add_span_processor(SimpleSpanProcessor(OTLPSpanExporter()))
+        trace.set_tracer_provider(tracer_provider)
 
-    # Auto-instrumentation (SQLAlchemy + HTTPX)
-    if engine:
-        SQLAlchemyInstrumentor().instrument(engine=engine)
-    HTTPXClientInstrumentor().instrument()
+        # Auto-instrumentation (SQLAlchemy + HTTPX)
+        if engine:
+            SQLAlchemyInstrumentor().instrument(engine=engine)
+        HTTPXClientInstrumentor().instrument()
 
-    logger.info(
-        "OpenTelemetry configured, exporting to %s",
-        settings.otel_exporter_otlp_endpoint,
-    )
+        logger.info(
+            "OpenTelemetry configured, exporting to %s",
+            settings.otel_exporter_otlp_endpoint,
+        )
+    except Exception:
+        logger.exception(
+            "Failed to initialize OpenTelemetry — app will continue without tracing"
+        )
 
 
 def instrument_app(app) -> None:
