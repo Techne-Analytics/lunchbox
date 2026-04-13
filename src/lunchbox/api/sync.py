@@ -1,6 +1,7 @@
+import hmac
 import logging
 import uuid
-from datetime import date, datetime, timezone
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
@@ -30,6 +31,11 @@ def trigger_sync(
     )
     if not sub:
         raise HTTPException(status_code=404, detail="Subscription not found")
+
+    # Guardrail: max menu items
+    total_items = db.query(MenuItem).count()
+    if total_items >= settings.max_menu_items:
+        raise HTTPException(status_code=400, detail="Menu item limit reached")
 
     with SchoolCafeClient() as client:
         log = sync_subscription(
@@ -90,11 +96,11 @@ def cron_sync(request: Request, db: Session = Depends(get_db)) -> dict:
         raise HTTPException(status_code=403, detail="CRON_SECRET not configured")
 
     cron_auth = request.headers.get("x-vercel-cron-auth", "")
-    if cron_auth != settings.cron_secret:
+    if not hmac.compare_digest(cron_auth, settings.cron_secret):
         raise HTTPException(status_code=403, detail="Invalid cron secret")
 
     # Guardrail: max syncs per day
-    today = date.today()
+    today = datetime.now(timezone.utc).date()
     today_start = datetime(today.year, today.month, today.day, tzinfo=timezone.utc)
     syncs_today = db.query(SyncLog).filter(SyncLog.started_at >= today_start).count()
     if syncs_today >= settings.max_syncs_per_day:

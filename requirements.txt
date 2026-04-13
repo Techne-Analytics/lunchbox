@@ -32,13 +32,9 @@ cryptography==46.0.7
 fastapi==0.135.3
     # via lunchbox (pyproject.toml)
 googleapis-common-protos==1.74.0
-    # via
-    #   opentelemetry-exporter-otlp-proto-grpc
-    #   opentelemetry-exporter-otlp-proto-http
+    # via opentelemetry-exporter-otlp-proto-http
 greenlet==3.4.0
     # via sqlalchemy
-grpcio==1.80.0
-    # via opentelemetry-exporter-otlp-proto-grpc
 h11==0.16.0
     # via httpcore
 httpcore==1.0.9
@@ -68,7 +64,6 @@ markupsafe==3.0.3
 opentelemetry-api==1.41.0
     # via
     #   lunchbox (pyproject.toml)
-    #   opentelemetry-exporter-otlp-proto-grpc
     #   opentelemetry-exporter-otlp-proto-http
     #   opentelemetry-instrumentation
     #   opentelemetry-instrumentation-asgi
@@ -77,16 +72,10 @@ opentelemetry-api==1.41.0
     #   opentelemetry-instrumentation-sqlalchemy
     #   opentelemetry-sdk
     #   opentelemetry-semantic-conventions
-opentelemetry-exporter-otlp==1.41.0
-    # via lunchbox (pyproject.toml)
 opentelemetry-exporter-otlp-proto-common==1.41.0
-    # via
-    #   opentelemetry-exporter-otlp-proto-grpc
-    #   opentelemetry-exporter-otlp-proto-http
-opentelemetry-exporter-otlp-proto-grpc==1.41.0
-    # via opentelemetry-exporter-otlp
+    # via opentelemetry-exporter-otlp-proto-http
 opentelemetry-exporter-otlp-proto-http==1.41.0
-    # via opentelemetry-exporter-otlp
+    # via lunchbox (pyproject.toml)
 opentelemetry-instrumentation==0.62b0
     # via
     #   opentelemetry-instrumentation-asgi
@@ -104,12 +93,10 @@ opentelemetry-instrumentation-sqlalchemy==0.62b0
 opentelemetry-proto==1.41.0
     # via
     #   opentelemetry-exporter-otlp-proto-common
-    #   opentelemetry-exporter-otlp-proto-grpc
     #   opentelemetry-exporter-otlp-proto-http
 opentelemetry-sdk==1.41.0
     # via
     #   lunchbox (pyproject.toml)
-    #   opentelemetry-exporter-otlp-proto-grpc
     #   opentelemetry-exporter-otlp-proto-http
 opentelemetry-semantic-conventions==0.62b0
     # via
@@ -164,9 +151,7 @@ typing-extensions==4.15.0
     # via
     #   alembic
     #   fastapi
-    #   grpcio
     #   opentelemetry-api
-    #   opentelemetry-exporter-otlp-proto-grpc
     #   opentelemetry-exporter-otlp-proto-http
     #   opentelemetry-sdk
     #   opentelemetry-semantic-conventions
