@@ -1,16 +1,20 @@
+import logging
 import uuid
+from datetime import date, datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 
 from lunchbox.auth.dependencies import get_current_user
 from lunchbox.config import settings
 from lunchbox.db import get_db
-from lunchbox.models import Subscription, SyncLog, User
-from lunchbox.sync.engine import sync_subscription
+from lunchbox.models import MenuItem, Subscription, SyncLog, User
+from lunchbox.sync.engine import sync_all, sync_subscription
 from lunchbox.sync.menu_client import SchoolCafeClient
 
 router = APIRouter(prefix="/api/sync", tags=["sync"])
+
+logger = logging.getLogger(__name__)
 
 
 @router.post("/trigger/{subscription_id}")
@@ -76,3 +80,48 @@ def sync_history(
         }
         for log in logs
     ]
+
+
+@router.get("/cron")
+def cron_sync(request: Request, db: Session = Depends(get_db)) -> dict:
+    """Vercel Cron endpoint — syncs all active subscriptions."""
+    # Validate cron secret
+    if not settings.cron_secret:
+        raise HTTPException(status_code=403, detail="CRON_SECRET not configured")
+
+    cron_auth = request.headers.get("x-vercel-cron-auth", "")
+    if cron_auth != settings.cron_secret:
+        raise HTTPException(status_code=403, detail="Invalid cron secret")
+
+    # Guardrail: max syncs per day
+    today = date.today()
+    today_start = datetime(today.year, today.month, today.day, tzinfo=timezone.utc)
+    syncs_today = db.query(SyncLog).filter(SyncLog.started_at >= today_start).count()
+    if syncs_today >= settings.max_syncs_per_day:
+        logger.warning(
+            "Sync skipped: %d syncs today (max %d)",
+            syncs_today,
+            settings.max_syncs_per_day,
+        )
+        return {"status": "skipped", "reason": "max_syncs_per_day reached"}
+
+    # Guardrail: max menu items
+    total_items = db.query(MenuItem).count()
+    if total_items >= settings.max_menu_items:
+        logger.warning(
+            "Sync skipped: %d menu items (max %d)",
+            total_items,
+            settings.max_menu_items,
+        )
+        return {"status": "skipped", "reason": "max_menu_items reached"}
+
+    # Run sync
+    with SchoolCafeClient() as client:
+        sync_all(
+            db,
+            client,
+            days=settings.days_to_fetch,
+            skip_weekends=settings.skip_weekends,
+        )
+
+    return {"status": "ok"}
