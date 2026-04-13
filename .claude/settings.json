@@ -8,7 +8,6 @@
       "Write(file_path=**/token.json)",
       "Write(file_path=**/.env*)",
       "Bash(rm -rf:*)",
-      "Bash(docker compose down -v:*)",
       "Bash(git push --force:*)"
     ]
   },
@@ -16,7 +15,7 @@
     "PostToolUse": [
       {
         "matcher": "Edit|Write",
-        "command": "cd D:/docker/n8n && ruff format \"$CLAUDE_FILE_PATH\" 2>/dev/null; ruff check --fix \"$CLAUDE_FILE_PATH\" 2>/dev/null; true",
+        "command": "[[ \"$CLAUDE_FILE_PATH\" == *.py ]] && { ruff format \"$CLAUDE_FILE_PATH\" 2>/dev/null; ruff check --fix \"$CLAUDE_FILE_PATH\" 2>/dev/null; }; true",
         "description": "Auto-format and fix Python files with Ruff after edits"
       }
     ]
