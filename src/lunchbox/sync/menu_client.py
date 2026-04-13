@@ -101,6 +101,11 @@ class SchoolCafeClient:
         self._min_request_delay = min_request_delay
         self._last_request_time = 0.0
 
+    def _get_delay(self, attempt: int) -> float:
+        if attempt < len(self._retry_delays):
+            return self._retry_delays[attempt]
+        return self._retry_delays[-1]
+
     def _throttle(self) -> None:
         """Sleep if less than _min_request_delay since last request."""
         if self._min_request_delay <= 0:
@@ -125,11 +130,7 @@ class SchoolCafeClient:
             except httpx.TimeoutException as exc:
                 last_exc = exc
                 if attempt < self._max_retries:
-                    delay = (
-                        self._retry_delays[attempt]
-                        if attempt < len(self._retry_delays)
-                        else self._retry_delays[-1]
-                    )
+                    delay = self._get_delay(attempt)
                     logger.warning(
                         "Request timeout (attempt %d/%d), retrying in %.1fs",
                         attempt + 1,
@@ -149,23 +150,11 @@ class SchoolCafeClient:
                         try:
                             delay = min(float(retry_after), RETRY_AFTER_CAP)
                         except (ValueError, TypeError):
-                            delay = (
-                                self._retry_delays[attempt]
-                                if attempt < len(self._retry_delays)
-                                else self._retry_delays[-1]
-                            )
+                            delay = self._get_delay(attempt)
                     else:
-                        delay = (
-                            self._retry_delays[attempt]
-                            if attempt < len(self._retry_delays)
-                            else self._retry_delays[-1]
-                        )
+                        delay = self._get_delay(attempt)
                 elif 500 <= status < 600:
-                    delay = (
-                        self._retry_delays[attempt]
-                        if attempt < len(self._retry_delays)
-                        else self._retry_delays[-1]
-                    )
+                    delay = self._get_delay(attempt)
                 else:
                     # 4xx (not 429) — don't retry
                     raise

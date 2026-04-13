@@ -137,6 +137,36 @@ class TestRetry:
         assert route.call_count == 2
 
     @respx.mock
+    def test_429_respects_retry_after(self, schoolcafe_fixture):
+        data = schoolcafe_fixture("normal_lunch")
+        route = respx.get(f"{BASE_URL}/CalendarView/GetDailyMenuitemsByGrade")
+        route.side_effect = [
+            httpx.Response(429, headers={"Retry-After": "0"}),
+            httpx.Response(200, json=data),
+        ]
+
+        with SchoolCafeClient(max_retries=3, retry_delays=(0, 0, 0), min_request_delay=0) as client:
+            items = client.get_daily_menu("s1", date(2026, 3, 16), "Lunch", "Trad", "05")
+
+        assert len(items) > 0
+        assert route.call_count == 2
+
+    @respx.mock
+    def test_429_without_retry_after(self, schoolcafe_fixture):
+        data = schoolcafe_fixture("normal_lunch")
+        route = respx.get(f"{BASE_URL}/CalendarView/GetDailyMenuitemsByGrade")
+        route.side_effect = [
+            httpx.Response(429),  # no Retry-After header
+            httpx.Response(200, json=data),
+        ]
+
+        with SchoolCafeClient(max_retries=3, retry_delays=(0, 0, 0), min_request_delay=0) as client:
+            items = client.get_daily_menu("s1", date(2026, 3, 16), "Lunch", "Trad", "05")
+
+        assert len(items) > 0
+        assert route.call_count == 2
+
+    @respx.mock
     def test_retry_exhausted_raises(self):
         route = respx.get(f"{BASE_URL}/CalendarView/GetDailyMenuitemsByGrade").mock(
             return_value=httpx.Response(500)
