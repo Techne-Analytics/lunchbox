@@ -1,48 +1,39 @@
 import logging
 
-from opentelemetry import metrics, trace
-from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
+from opentelemetry import trace
 from opentelemetry.instrumentation.httpx import HTTPXClientInstrumentor
 from opentelemetry.instrumentation.sqlalchemy import SQLAlchemyInstrumentor
-from opentelemetry.sdk.metrics import MeterProvider
-from opentelemetry.sdk.metrics.export import PeriodicExportingMetricReader
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import TracerProvider
-from opentelemetry.sdk.trace.export import BatchSpanProcessor
+from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 
 from lunchbox.config import settings
 
 logger = logging.getLogger(__name__)
 
 
-def setup_telemetry(app=None, engine=None) -> None:
-    """Configure OpenTelemetry. No-op if OTLP endpoint not set."""
+def setup_telemetry(engine=None) -> None:
+    """Configure OpenTelemetry traces. No-op if OTLP endpoint not set.
+
+    Call at module level before app creation. Metrics removed for serverless
+    (Grafana derives metrics from traces).
+    """
     if not settings.otel_exporter_otlp_endpoint:
         logger.info("OTLP endpoint not configured, telemetry disabled")
         return
 
-    from opentelemetry.exporter.otlp.proto.http.metric_exporter import (
-        OTLPMetricExporter,
-    )
     from opentelemetry.exporter.otlp.proto.http.trace_exporter import (
         OTLPSpanExporter,
     )
 
     resource = Resource.create({"service.name": settings.otel_service_name})
 
-    # Traces
+    # Traces — SimpleSpanProcessor for serverless (synchronous export per span)
     tracer_provider = TracerProvider(resource=resource)
-    tracer_provider.add_span_processor(BatchSpanProcessor(OTLPSpanExporter()))
+    tracer_provider.add_span_processor(SimpleSpanProcessor(OTLPSpanExporter()))
     trace.set_tracer_provider(tracer_provider)
 
-    # Metrics
-    metric_reader = PeriodicExportingMetricReader(OTLPMetricExporter())
-    meter_provider = MeterProvider(resource=resource, metric_readers=[metric_reader])
-    metrics.set_meter_provider(meter_provider)
-
-    # Auto-instrumentation
-    if app:
-        FastAPIInstrumentor.instrument_app(app)
+    # Auto-instrumentation (SQLAlchemy + HTTPX)
     if engine:
         SQLAlchemyInstrumentor().instrument(engine=engine)
     HTTPXClientInstrumentor().instrument()
@@ -53,9 +44,14 @@ def setup_telemetry(app=None, engine=None) -> None:
     )
 
 
+def instrument_app(app) -> None:
+    """Instrument FastAPI app. Call after app creation."""
+    if not settings.otel_exporter_otlp_endpoint:
+        return
+    from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
+
+    FastAPIInstrumentor.instrument_app(app)
+
+
 def get_tracer(name: str = "lunchbox") -> trace.Tracer:
     return trace.get_tracer(name)
-
-
-def get_meter(name: str = "lunchbox") -> metrics.Meter:
-    return metrics.get_meter(name)
