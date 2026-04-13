@@ -5,6 +5,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from lunchbox.auth.dependencies import get_current_user
+from lunchbox.config import settings
 from lunchbox.db import get_db
 from lunchbox.models import Subscription, User
 
@@ -66,6 +67,27 @@ def create_subscription(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> dict:
+    # Guardrail: subscription caps
+    user_count = (
+        db.query(Subscription)
+        .filter(Subscription.user_id == user.id, Subscription.is_active.is_(True))
+        .count()
+    )
+    if user_count >= settings.max_subscriptions_per_user:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Maximum {settings.max_subscriptions_per_user} active subscriptions per user",
+        )
+
+    global_count = (
+        db.query(Subscription).filter(Subscription.is_active.is_(True)).count()
+    )
+    if global_count >= settings.max_subscriptions_global:
+        raise HTTPException(
+            status_code=400,
+            detail="Maximum active subscriptions reached",
+        )
+
     sub = Subscription(
         user_id=user.id,
         school_id=data.school_id,
