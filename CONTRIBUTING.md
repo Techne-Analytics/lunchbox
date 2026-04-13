@@ -53,9 +53,6 @@ Examples:
 ## Dev Setup
 
 ```bash
-# Start local Postgres (for integration tests)
-docker compose -f docker/docker-compose.dev.yml up -d postgres
-
 # Install dependencies
 pip install -e ".[dev]"
 

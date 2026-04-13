@@ -46,7 +46,6 @@ src/lunchbox/
 ## Key Commands
 
 ```bash
-docker compose -f docker/docker-compose.dev.yml up -d postgres  # local DB
 pip install -e ".[dev]"     # install with dev deps
 alembic upgrade head        # run migrations
 pytest                      # run tests
