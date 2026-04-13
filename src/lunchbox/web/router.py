@@ -27,9 +27,7 @@ def landing(request: Request):
     user_id = request.session.get("user_id")
     if user_id:
         return RedirectResponse(url="/dashboard")
-    return templates.TemplateResponse(
-        "landing.html", {"request": request, "user": None}
-    )
+    return templates.TemplateResponse(request, "landing.html", {"user": None})
 
 
 @router.get("/dashboard", response_class=HTMLResponse)
@@ -40,9 +38,9 @@ def dashboard(
 ):
     subscriptions = db.query(Subscription).filter(Subscription.user_id == user.id).all()
     return templates.TemplateResponse(
+        request,
         "dashboard.html",
         {
-            "request": request,
             "user": user,
             "subscriptions": subscriptions,
             "base_url": settings.base_url,
@@ -52,9 +50,7 @@ def dashboard(
 
 @router.get("/subscriptions/new", response_class=HTMLResponse)
 def new_subscription(request: Request, user: User = Depends(get_current_user)):
-    return templates.TemplateResponse(
-        "subscription_new.html", {"request": request, "user": user}
-    )
+    return templates.TemplateResponse(request, "subscription_new.html", {"user": user})
 
 
 @router.post("/subscriptions/create")
@@ -141,9 +137,9 @@ def subscription_detail(
     if not sub:
         return RedirectResponse(url="/dashboard")
     return templates.TemplateResponse(
+        request,
         "subscription_detail.html",
         {
-            "request": request,
             "user": user,
             "sub": sub,
             "base_url": settings.base_url,
@@ -208,9 +204,9 @@ def subscription_preview(
         grouped.setdefault(date_str, {}).setdefault(item.meal_type, []).append(item)
 
     return templates.TemplateResponse(
+        request,
         "subscription_preview.html",
         {
-            "request": request,
             "user": user,
             "sub": sub,
             "grouped_items": grouped,
