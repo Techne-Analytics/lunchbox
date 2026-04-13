@@ -10,6 +10,27 @@ from lunchbox.sync.menu_client import SchoolCafeClient
 BASE_URL = "https://webapis.schoolcafe.com/api"
 
 
+class TestClientConfig:
+    def test_default_constructor(self):
+        client = SchoolCafeClient()
+        assert client._max_retries == 3
+        assert client._retry_delays == (1, 2, 4)
+        assert client._min_request_delay == 0.1
+        assert client._last_request_time == 0.0
+        client.close()
+
+    def test_custom_constructor(self):
+        client = SchoolCafeClient(
+            max_retries=5,
+            retry_delays=(0.5, 1.0),
+            min_request_delay=0.5,
+        )
+        assert client._max_retries == 5
+        assert client._retry_delays == (0.5, 1.0)
+        assert client._min_request_delay == 0.5
+        client.close()
+
+
 class TestGetDailyMenu:
     @respx.mock
     def test_successful_fetch(self, schoolcafe_fixture):

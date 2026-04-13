@@ -83,10 +83,20 @@ class SchoolCafeClient:
 
     BASE_URL = "https://webapis.schoolcafe.com/api"
 
-    def __init__(self, timeout: int = 30):
+    def __init__(
+        self,
+        timeout: int = 30,
+        max_retries: int = 3,
+        retry_delays: tuple[float, ...] = (1, 2, 4),
+        min_request_delay: float = 0.1,
+    ):
         self._client = httpx.Client(
             timeout=timeout, headers={"Accept": "application/json"}
         )
+        self._max_retries = max_retries
+        self._retry_delays = retry_delays
+        self._min_request_delay = min_request_delay
+        self._last_request_time = 0.0
 
     def get_daily_menu(
         self,
