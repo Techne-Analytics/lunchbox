@@ -60,9 +60,10 @@ from sqlalchemy.pool import NullPool
 engine = create_engine(
     settings.database_url,
     poolclass=NullPool,
-    pool_pre_ping=True,
 )
 ```
+
+`pool_pre_ping` is not needed with `NullPool` — every call creates a fresh connection. Neon's pooler handles stale connections server-side.
 
 ### Alembic migration config
 
@@ -137,7 +138,7 @@ Before each sync, count total menu_items. If over 50,000, skip sync and log a wa
 
 ```python
 # config.py
-cron_secret: str = ""
+cron_secret: str = ""  # endpoint rejects all cron requests when empty/unset
 max_syncs_per_day: int = 10
 max_subscriptions_per_user: int = 5
 max_subscriptions_global: int = 20
@@ -186,7 +187,15 @@ Move `src/lunchbox/web/static/` to `public/static/`. Remove `StaticFiles` mount 
 
 ### Telemetry in serverless
 
-Move `setup_telemetry()` from the lifespan context manager to module-level initialization in `main.py` (Vercel may not dispatch ASGI lifespan events). Use `SimpleSpanProcessor` instead of `BatchSpanProcessor` to ensure spans are exported synchronously per-request (batch processor buffers data that may be lost when the function freezes). Accept minor latency cost (~5ms per span).
+**Traces:** Move telemetry init to module level in `main.py` (Vercel may not dispatch ASGI lifespan events). Use `SimpleSpanProcessor` instead of `BatchSpanProcessor` to ensure spans export synchronously per-request. Accept minor latency cost (~5ms per span).
+
+**Metrics:** Replace `PeriodicExportingMetricReader` with synchronous export or remove metrics entirely. The periodic reader runs a background thread that will be killed when the function freezes between invocations. Decision: **remove metrics, rely on Grafana derived metrics from traces.** This is simpler and traces already capture request rate, latency, and error rate.
+
+**Init ordering:** Split `setup_telemetry()` into two calls:
+1. Module level (before `app` creation): set up tracer/meter providers, instrument SQLAlchemy + HTTPX
+2. After `app = FastAPI(...)`: call `FastAPIInstrumentor.instrument_app(app)`
+
+Vercel's Python runtime looks for a module-level `app` variable — the existing `main.py` already exports this.
 
 ### psycopg2 compatibility
 
@@ -194,7 +203,7 @@ Move `setup_telemetry()` from the lifespan context manager to module-level initi
 
 ### Google OAuth
 
-Update redirect URI to `https://lunchbox.techneanalytics.io/auth/callback`. Set `BASE_URL=https://lunchbox.techneanalytics.io` in Vercel env vars.
+**Before first deploy:** Add `https://lunchbox.techneanalytics.io/auth/callback` to authorized redirect URIs in Google Cloud Console. Set `BASE_URL=https://lunchbox.techneanalytics.io` in Vercel env vars.
 
 ### DNS
 
@@ -216,9 +225,9 @@ Point `lunchbox.techneanalytics.io` CNAME to `cname.vercel-dns.com` in Cloudflar
 | Modify | `src/lunchbox/api/sync.py` | Add `GET /api/sync/cron` endpoint with guardrails |
 | Modify | `src/lunchbox/api/subscriptions.py` | Add subscription cap checks |
 | Modify | `src/lunchbox/sync/engine.py` | Add row count guardrail |
-| Modify | `pyproject.toml` | Remove apscheduler |
+| Modify | `pyproject.toml` | Remove apscheduler, move uvicorn to dev extras |
 | Modify | `alembic/env.py` | Read DIRECT_DATABASE_URL for migrations |
-| Modify | `.github/workflows/ci.yml` | Remove Docker build step, update for non-Docker setup |
+| Modify | `.github/workflows/ci.yml` | Remove Docker build step (must be in same PR as Dockerfile deletion) |
 | Delete | `src/lunchbox/scheduler/jobs.py` | Replaced by cron endpoint |
 | Delete | `src/lunchbox/scheduler/__init__.py` | Directory removed |
 | Update | `tests/unit/test_scheduler.py` | Delete, replace with cron endpoint tests |
@@ -272,6 +281,11 @@ The entire app depends on SchoolCafe's undocumented API. This review ensures we'
 - Does SchoolCafe rate-limit? We make ~14 API calls per subscription per sync. At 20 subscriptions, that's 280 calls in quick succession.
 - What happens when SchoolCafe is down? Do we retry, or just log and move on? Is the current behavior (log error, continue to next date) sufficient?
 - Should we add backoff/retry for transient failures (HTTP 429, 503)?
+
+**Performance under serverless constraints:**
+- Measure end-to-end sync duration against Neon with cold start. Neon auto-suspends after 5 minutes of inactivity — cold starts add 1-3 seconds.
+- Verify 20 subscriptions complete within the 60-second Vercel Pro timeout, including Neon wake-up time.
+- Test telemetry changes (module-level init, no metrics reader) — confirm traces still flow to Grafana.
 
 ## Out of Scope
 
