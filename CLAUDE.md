@@ -43,6 +43,12 @@ src/lunchbox/
 └── telemetry/          # OpenTelemetry setup (traces only, no metrics)
 ```
 
+## Setup (new clone)
+
+```bash
+git config core.hooksPath .githooks  # enable pre-push lint + tests
+```
+
 ## Key Commands
 
 ```bash
@@ -50,6 +56,17 @@ pip install -e ".[dev]"     # install with dev deps
 alembic upgrade head        # run migrations
 pytest                      # run tests
 ruff check . && ruff format .  # lint + format
+vercel --prod               # deploy to production
+vercel logs <url>           # check function logs
+```
+
+### Migrations (Neon)
+
+```bash
+# Pull Vercel env vars, then run Alembic against unpooled URL
+vercel env pull .env.vercel
+source .env.vercel && alembic upgrade head
+rm .env.vercel  # don't commit secrets
 ```
 
 ## Deployment
@@ -58,6 +75,16 @@ ruff check . && ruff format .  # lint + format
 - Database: Neon Postgres (Vercel integration)
 - Cron: Vercel Cron hits `/api/sync/cron` weekdays at noon UTC
 - Static files: served from `public/` directory
+
+## Environment Variables (Vercel)
+
+Required in Vercel dashboard (production):
+- `DATABASE_URL` — auto-injected by Neon integration
+- `SECRET_KEY` — `python -c "import secrets; print(secrets.token_urlsafe(32))"`
+- `CRON_SECRET` — same generation method
+- `BASE_URL` — `https://lunchbox-ebon.vercel.app`
+- `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` — from Google Cloud Console
+- `OTEL_EXPORTER_OTLP_ENDPOINT` / `OTEL_EXPORTER_OTLP_HEADERS` — from Grafana Cloud
 
 ## Sensitive Files — DO NOT COMMIT
 
@@ -69,3 +96,12 @@ ruff check . && ruff format .  # lint + format
 - **SchoolCafe** (schoolcafe.com) — menu data. We do not control this API. Parse defensively, self-heal on schema drift.
 - **Google OAuth** — login only (`openid`, `email`, `profile`). No calendar write scopes.
 - **Grafana Cloud OTLP** — telemetry export.
+
+## Gotchas
+
+- **Vercel env vars:** Use `printf` not `echo` when piping to `vercel env add` (echo adds trailing newline)
+- **TemplateResponse:** Starlette new API requires `TemplateResponse(request, name, context)` not `TemplateResponse(name, {"request": request, ...})`
+- **vercel.json:** Use `builds`/`routes` format, not `functions`/`rewrites` — the modern format errors with `@vercel/python`
+- **NullPool:** Required for serverless — default QueuePool exhausts Neon connections
+- **Cron auth:** Vercel sends `Authorization: Bearer <CRON_SECRET>`, not `x-vercel-cron-auth`
+- **OTel headers:** Use space not `%20` in `Authorization=Basic <token>` value
