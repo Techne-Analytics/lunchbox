@@ -6,7 +6,7 @@ FastAPI web app that syncs school lunch/breakfast menus from SchoolCafe to subsc
 
 - **[CONTRIBUTING.md](CONTRIBUTING.md)** — development workflow, commit conventions, PR rules. Follow this exactly.
 - **[README.md](README.md)** — project overview and quick start.
-- **[Design Spec](docs/superpowers/specs/2026-03-14-lunchbox-redesign-design.md)** — full architecture, data model, and design decisions.
+- **[Design Spec](docs/superpowers/specs/2026-04-13-vercel-migration-design.md)** — current architecture (Vercel + Neon).
 
 ## Rules
 
@@ -20,11 +20,11 @@ FastAPI web app that syncs school lunch/breakfast menus from SchoolCafe to subsc
 ## Tech Stack
 
 - Python 3.11 / FastAPI / SQLAlchemy / Alembic
-- PostgreSQL
+- Neon Postgres (via Vercel integration)
 - HTMX + Jinja2 (server-rendered UI)
 - OpenTelemetry → Grafana Cloud
-- Docker Compose (Fly.io future)
-- APScheduler (background sync)
+- Vercel (serverless hosting)
+- Vercel Cron (daily sync)
 - Ruff (lint + format)
 - pytest (tests)
 
@@ -32,27 +32,33 @@ FastAPI web app that syncs school lunch/breakfast menus from SchoolCafe to subsc
 
 ```
 src/lunchbox/
-├── main.py             # FastAPI app factory, lifespan
-├── config.py           # Pydantic Settings
-├── db.py               # SQLAlchemy engine/session
+├── main.py             # FastAPI app, module-level telemetry init
+├── config.py           # Pydantic Settings + guardrail limits
+├── db.py               # SQLAlchemy engine (NullPool) / session
 ├── models/             # ORM models (user, subscription, menu_item, sync_log)
 ├── auth/               # Google OAuth login
-├── api/                # REST API + iCal feed endpoint
+├── api/                # REST API + iCal feed + cron endpoint
 ├── web/                # HTMX frontend (Jinja2 templates)
 ├── sync/               # Menu fetch + sync engine
-├── scheduler/          # APScheduler jobs
-└── telemetry/          # OpenTelemetry setup
+└── telemetry/          # OpenTelemetry setup (traces only, no metrics)
 ```
 
 ## Key Commands
 
 ```bash
-docker compose up -d postgres    # start DB
-pip install -e ".[dev]"          # install with dev deps
-alembic upgrade head             # run migrations
-pytest                           # run tests
-ruff check . && ruff format .    # lint + format
+docker compose -f docker/docker-compose.dev.yml up -d postgres  # local DB
+pip install -e ".[dev]"     # install with dev deps
+alembic upgrade head        # run migrations
+pytest                      # run tests
+ruff check . && ruff format .  # lint + format
 ```
+
+## Deployment
+
+- Hosted on Vercel (auto-deploys on push to main)
+- Database: Neon Postgres (Vercel integration)
+- Cron: Vercel Cron hits `/api/sync/cron` weekdays at noon UTC
+- Static files: served from `public/` directory
 
 ## Sensitive Files — DO NOT COMMIT
 
@@ -61,6 +67,6 @@ ruff check . && ruff format .    # lint + format
 
 ## External APIs
 
-- **SchoolCafe** (schoolcafe.com) — menu data. We do not control this API. Parse defensively, self-heal on schema drift. See [docs/schoolcafe-api.md](docs/schoolcafe-api.md) for endpoint reference.
+- **SchoolCafe** (schoolcafe.com) — menu data. We do not control this API. Parse defensively, self-heal on schema drift.
 - **Google OAuth** — login only (`openid`, `email`, `profile`). No calendar write scopes.
 - **Grafana Cloud OTLP** — telemetry export.

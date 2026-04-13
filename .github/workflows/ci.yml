@@ -58,7 +58,4 @@ jobs:
             echo "No migration files yet — skipping alembic check"
           fi
 
-      - name: Verify Docker build
-        run: docker build -t lunchbox:test .
-
       # pr-toolkit review is required before merge — run via Claude Code on each PR.

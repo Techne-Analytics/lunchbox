@@ -1,3 +1,4 @@
+import logging
 from pathlib import Path
 
 from markupsafe import escape
@@ -7,6 +8,8 @@ from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
+from fastapi import HTTPException
+
 from lunchbox.auth.dependencies import get_current_user
 from lunchbox.config import settings
 from lunchbox.db import get_db
@@ -14,6 +17,7 @@ from lunchbox.models import MenuItem, Subscription, User
 from lunchbox.sync.menu_client import SchoolCafeClient
 
 router = APIRouter(tags=["web"])
+logger = logging.getLogger(__name__)
 _here = Path(__file__).parent
 templates = Jinja2Templates(directory=str(_here / "templates"))
 
@@ -59,6 +63,25 @@ async def create_subscription_web(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    # Guardrail: subscription caps (same checks as API endpoint)
+    user_count = (
+        db.query(Subscription)
+        .filter(Subscription.user_id == user.id, Subscription.is_active.is_(True))
+        .count()
+    )
+    if user_count >= settings.max_subscriptions_per_user:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Maximum {settings.max_subscriptions_per_user} active subscriptions per user",
+        )
+    global_count = (
+        db.query(Subscription).filter(Subscription.is_active.is_(True)).count()
+    )
+    if global_count >= settings.max_subscriptions_global:
+        raise HTTPException(
+            status_code=400, detail="Maximum active subscriptions reached"
+        )
+
     form = await request.form()
     school_id = form.get("school_id", "")
     school_name = form.get("school_name") or school_id
@@ -137,6 +160,7 @@ def school_options(q: str):
         with SchoolCafeClient() as client:
             schools = client.search_schools(q.strip())
     except Exception:
+        logger.exception("School search failed for query: %s", q.strip())
         return Response('<option value="">Error searching schools</option>')
     if not schools:
         return Response('<option value="">No schools found</option>')

@@ -16,9 +16,15 @@ class Settings(BaseSettings):
     # Sync defaults
     days_to_fetch: int = 7
     skip_weekends: bool = True
-    sync_hour: int = 6
-    sync_minute: int = 0
-    timezone: str = "America/Denver"
+
+    # Vercel Cron auth
+    cron_secret: str = ""
+
+    # Guardrails
+    max_syncs_per_day: int = 10
+    max_subscriptions_per_user: int = 5
+    max_subscriptions_global: int = 20
+    max_menu_items: int = 50000
 
     model_config = {"env_prefix": "", "case_sensitive": False}
 

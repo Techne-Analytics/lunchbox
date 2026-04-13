@@ -1,0 +1,14 @@
+{
+  "functions": {
+    "src/lunchbox/main.py": {
+      "runtime": "@vercel/python",
+      "maxDuration": 60
+    }
+  },
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/src/lunchbox/main.py" }
+  ],
+  "crons": [
+    { "path": "/api/sync/cron", "schedule": "0 12 * * 1-5" }
+  ]
+}

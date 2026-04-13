@@ -1,16 +1,21 @@
+import hmac
+import logging
 import uuid
+from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 
 from lunchbox.auth.dependencies import get_current_user
 from lunchbox.config import settings
 from lunchbox.db import get_db
-from lunchbox.models import Subscription, SyncLog, User
-from lunchbox.sync.engine import sync_subscription
+from lunchbox.models import MenuItem, Subscription, SyncLog, User
+from lunchbox.sync.engine import sync_all, sync_subscription
 from lunchbox.sync.menu_client import SchoolCafeClient
 
 router = APIRouter(prefix="/api/sync", tags=["sync"])
+
+logger = logging.getLogger(__name__)
 
 
 @router.post("/trigger/{subscription_id}")
@@ -26,6 +31,11 @@ def trigger_sync(
     )
     if not sub:
         raise HTTPException(status_code=404, detail="Subscription not found")
+
+    # Guardrail: max menu items
+    total_items = db.query(MenuItem).count()
+    if total_items >= settings.max_menu_items:
+        raise HTTPException(status_code=400, detail="Menu item limit reached")
 
     with SchoolCafeClient() as client:
         log = sync_subscription(
@@ -76,3 +86,62 @@ def sync_history(
         }
         for log in logs
     ]
+
+
+@router.get("/cron")
+def cron_sync(request: Request, db: Session = Depends(get_db)) -> dict:
+    """Vercel Cron endpoint — syncs all active subscriptions."""
+    # Validate cron secret
+    if not settings.cron_secret:
+        raise HTTPException(status_code=403, detail="CRON_SECRET not configured")
+
+    # Vercel sends Authorization: Bearer <CRON_SECRET>
+    auth_header = request.headers.get("authorization", "")
+    expected = f"Bearer {settings.cron_secret}"
+    if not hmac.compare_digest(auth_header, expected):
+        raise HTTPException(status_code=403, detail="Invalid cron secret")
+
+    # Guardrail: max syncs per day
+    today = datetime.now(timezone.utc).date()
+    today_start = datetime(today.year, today.month, today.day, tzinfo=timezone.utc)
+    syncs_today = db.query(SyncLog).filter(SyncLog.started_at >= today_start).count()
+    if syncs_today >= settings.max_syncs_per_day:
+        logger.warning(
+            "Sync skipped: %d syncs today (max %d)",
+            syncs_today,
+            settings.max_syncs_per_day,
+        )
+        return {"status": "skipped", "reason": "max_syncs_per_day reached"}
+
+    # Guardrail: max menu items
+    total_items = db.query(MenuItem).count()
+    if total_items >= settings.max_menu_items:
+        logger.warning(
+            "Sync skipped: %d menu items (max %d)",
+            total_items,
+            settings.max_menu_items,
+        )
+        return {"status": "skipped", "reason": "max_menu_items reached"}
+
+    # Run sync
+    try:
+        with SchoolCafeClient() as client:
+            sync_all(
+                db,
+                client,
+                days=settings.days_to_fetch,
+                skip_weekends=settings.skip_weekends,
+            )
+    except Exception:
+        logger.exception("Cron sync failed")
+        raise HTTPException(status_code=500, detail="Sync failed")
+
+    # Check if any syncs actually succeeded
+    new_logs = db.query(SyncLog).filter(SyncLog.started_at >= today_start).all()
+    failed = sum(1 for log in new_logs if log.status == "error")
+    total = len(new_logs) - syncs_today  # only count logs from this run
+    if total > 0 and failed == total:
+        logger.error("All %d syncs failed in cron run", total)
+        raise HTTPException(status_code=500, detail=f"All {total} syncs failed")
+
+    return {"status": "ok", "synced": total - failed, "failed": failed}
