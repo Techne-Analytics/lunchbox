@@ -25,25 +25,10 @@ Lunchbox fetches menus from SchoolCafe (Denver Public Schools) and publishes the
 ## Tech Stack
 
 - Python 3.11 / FastAPI
-- PostgreSQL
+- Neon Postgres (via Vercel)
 - HTMX (server-rendered UI)
-- Docker Compose
+- Vercel (serverless hosting + cron)
 - OpenTelemetry → Grafana Cloud
-
-## Quick Start
-
-```bash
-# Clone and configure
-cp .env.example .env    # edit with your settings
-
-# Start everything
-docker compose up -d
-
-# Run migrations
-docker compose exec app alembic upgrade head
-
-# Open http://localhost:8000
-```
 
 ## Development
 
@@ -51,7 +36,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for workflow, branch naming, commit conve
 
 ## Design
 
-See [docs/superpowers/specs/2026-03-14-lunchbox-redesign-design.md](docs/superpowers/specs/2026-03-14-lunchbox-redesign-design.md) for the full design spec.
+See [docs/superpowers/specs/2026-04-13-vercel-migration-design.md](docs/superpowers/specs/2026-04-13-vercel-migration-design.md) for the current architecture spec.
 
 ## License
 

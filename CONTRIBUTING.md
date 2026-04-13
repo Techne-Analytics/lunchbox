@@ -48,13 +48,13 @@ Examples:
 - Body: reference the issue, describe what changed and why
 - All PRs must run pr-toolkit review before merge
 - Pre-push hook enforces lint + unit tests locally
-- CI runs on push to main as a post-merge safety net (integration tests, migrations, Docker build)
+- CI runs on push to main as a post-merge safety net (integration tests, migrations)
 
 ## Dev Setup
 
 ```bash
-# Start Postgres
-docker compose up -d postgres
+# Start local Postgres (for integration tests)
+docker compose -f docker/docker-compose.dev.yml up -d postgres
 
 # Install dependencies
 pip install -e ".[dev]"
@@ -71,9 +71,16 @@ pytest
 # Lint and format
 ruff check .
 ruff format .
+
+# Local dev server (not needed for Vercel deploy)
+uvicorn lunchbox.main:app --reload
 ```
 
-The pre-push hook runs `ruff check`, `ruff format --check`, and `pytest tests/unit/` before every push. This catches lint and unit test failures locally instead of burning CI minutes. CI still runs the full integration test suite against Postgres.
+The pre-push hook runs `ruff check`, `ruff format --check`, and `pytest tests/unit/` before every push. CI runs the full integration test suite on push to main.
+
+### Deployment
+
+Push to main auto-deploys to Vercel. Environment variables are managed in the Vercel dashboard. Run migrations manually after schema changes: set `DIRECT_DATABASE_URL` and run `alembic upgrade head`.
 
 ## Testing
 
