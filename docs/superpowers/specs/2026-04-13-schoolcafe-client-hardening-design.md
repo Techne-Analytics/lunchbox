@@ -26,7 +26,7 @@ Both `get_daily_menu()` and `search_schools()` use `_request()` instead of calli
 
 **Retry logic:**
 - On HTTP 5xx or `httpx.TimeoutException`: wait `retry_delays[attempt]` seconds, retry
-- On HTTP 429: use `Retry-After` header if present (capped at 60s), otherwise use standard delay, retry
+- On HTTP 429: use `Retry-After` header if present (capped at 10s), otherwise use standard delay, retry
 - On HTTP 4xx (not 429): raise immediately, no retry
 - After `max_retries` exhausted: raise the last exception
 
@@ -40,7 +40,7 @@ After `_request()` returns successfully:
 2. Check `isinstance(data, dict)` — log warning if not, return `[]`
 3. Existing drift detection and `_parse_response()` proceed as before
 
-`search_schools()` already handles non-list responses gracefully (checks `if not districts`), so it only needs the `JSONDecodeError` guard.
+`search_schools()` needs both a `JSONDecodeError` guard and an `isinstance(districts, list)` check. The current `if not districts` only catches falsy values — a non-list response like `{"error": "..."}` would cause `districts[0]` to raise `TypeError`. Same `isinstance` guard needed for the schools list response.
 
 ### Constructor parameters
 
@@ -61,7 +61,7 @@ All new params have defaults matching the issue specs. Tests can pass `max_retri
 
 | File | Change |
 |------|--------|
-| `src/lunchbox/sync/menu_client.py` | Add `_request()`, `_throttle()`. Update `get_daily_menu()` and `search_schools()` to use `_request()`. Add JSON/dict validation in `get_daily_menu()`. Add `JSONDecodeError` guard in `search_schools()`. New constructor params. |
+| `src/lunchbox/sync/menu_client.py` | Add `_request()`, `_throttle()`. Update `get_daily_menu()` and `search_schools()` to use `_request()`. Add JSON/dict validation in `get_daily_menu()`. Add `JSONDecodeError` + `isinstance` guards in `search_schools()`. New constructor params. |
 | `tests/unit/test_menu_client_http.py` | Update `test_http_500_raises` and `test_timeout_raises` to use `max_retries=0`. Add new tests for retry, throttle, 429, and validation. |
 
 ### What stays the same
@@ -79,6 +79,7 @@ All new params have defaults matching the issue specs. Tests can pass `max_retri
 | `test_retry_exhausted_raises` | 3x 500 raises `HTTPStatusError` |
 | `test_4xx_not_retried` | 404 raises immediately (1 request, not 4) |
 | `test_429_respects_retry_after` | 429 with `Retry-After: 1` header retries after delay |
+| `test_429_without_retry_after` | 429 without header uses standard delay |
 | `test_timeout_retried` | Timeout then 200 returns data |
 | `test_malformed_json_returns_empty` | Non-JSON response body returns `[]` |
 | `test_non_dict_response_returns_empty` | JSON array response returns `[]` |
@@ -89,4 +90,12 @@ Existing tests `test_http_500_raises` and `test_timeout_raises` updated to pass 
 
 ### Error budget
 
-With 3 retries and delays of (1, 2, 4), worst case per request is 7 seconds. For 280 requests, if every request maxes out retries, total sync time = ~33 minutes. The Vercel function timeout is 60 seconds, but the engine already catches per-request failures — so individual timeouts don't kill the whole sync. The throttle adds 0.1s * 280 = 28 seconds baseline. Acceptable for a daily cron job.
+**Vercel constraint:** Each function invocation has a 60-second timeout. The cron endpoint calls `sync_all()` in a single invocation.
+
+**Happy path:** 280 requests × 0.1s throttle = 28s baseline + request time. Tight but feasible within 60s if SchoolCafe responds quickly (~50-100ms per call).
+
+**With retries:** Each retry adds 1-4s of sleep. A few retries are fine, but widespread failures (e.g., SchoolCafe down) will hit the 60s wall. This is acceptable because: (a) the engine catches per-request failures individually, so partial data is saved, and (b) if SchoolCafe is broadly failing, retrying won't help anyway.
+
+**`Retry-After` cap:** Set to 10s (not 60s) to avoid a single 429 consuming the entire budget.
+
+**Future consideration:** If subscription count grows beyond ~30, the throttle baseline alone exceeds 60s. At that point, the cron design needs chunking (multiple invocations). This is out of scope for this change.
