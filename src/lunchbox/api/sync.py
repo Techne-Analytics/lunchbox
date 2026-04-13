@@ -95,8 +95,10 @@ def cron_sync(request: Request, db: Session = Depends(get_db)) -> dict:
     if not settings.cron_secret:
         raise HTTPException(status_code=403, detail="CRON_SECRET not configured")
 
-    cron_auth = request.headers.get("x-vercel-cron-auth", "")
-    if not hmac.compare_digest(cron_auth, settings.cron_secret):
+    # Vercel sends Authorization: Bearer <CRON_SECRET>
+    auth_header = request.headers.get("authorization", "")
+    expected = f"Bearer {settings.cron_secret}"
+    if not hmac.compare_digest(auth_header, expected):
         raise HTTPException(status_code=403, detail="Invalid cron secret")
 
     # Guardrail: max syncs per day

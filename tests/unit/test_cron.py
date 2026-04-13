@@ -11,7 +11,7 @@ class TestCronEndpoint:
     def test_cron_rejects_wrong_secret(self, client):
         response = client.get(
             "/api/sync/cron",
-            headers={"x-vercel-cron-auth": "wrong"},
+            headers={"authorization": "Bearer wrong"},
         )
         assert response.status_code == 403
 
@@ -34,7 +34,7 @@ class TestCronEndpoint:
 
             response = client.get(
                 "/api/sync/cron",
-                headers={"x-vercel-cron-auth": "test-secret"},
+                headers={"authorization": "Bearer test-secret"},
             )
 
         assert response.status_code == 200
@@ -54,7 +54,7 @@ class TestCronEndpoint:
 
             response = client.get(
                 "/api/sync/cron",
-                headers={"x-vercel-cron-auth": "test-secret"},
+                headers={"authorization": "Bearer test-secret"},
             )
 
         assert response.status_code == 200
