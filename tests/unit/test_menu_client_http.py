@@ -68,7 +68,7 @@ class TestGetDailyMenu:
             return_value=httpx.Response(500)
         )
 
-        with SchoolCafeClient() as client:
+        with SchoolCafeClient(max_retries=0) as client:
             with pytest.raises(httpx.HTTPStatusError):
                 client.get_daily_menu("s1", date(2026, 3, 16), "Lunch", "Trad", "05")
 
@@ -78,7 +78,7 @@ class TestGetDailyMenu:
             side_effect=httpx.TimeoutException("timed out")
         )
 
-        with SchoolCafeClient() as client:
+        with SchoolCafeClient(max_retries=0) as client:
             with pytest.raises(httpx.TimeoutException):
                 client.get_daily_menu("s1", date(2026, 3, 16), "Lunch", "Trad", "05")
 
@@ -113,3 +113,73 @@ class TestSearchSchools:
             result = client.search_schools("nonexistent")
 
         assert result == []
+
+
+class TestRetry:
+    @respx.mock
+    def test_retry_succeeds_on_second_attempt(self, schoolcafe_fixture):
+        data = schoolcafe_fixture("normal_lunch")
+        route = respx.get(f"{BASE_URL}/CalendarView/GetDailyMenuitemsByGrade").mock(
+            side_effect=[
+                httpx.Response(500),
+                httpx.Response(200, json=data),
+            ]
+        )
+
+        with SchoolCafeClient(
+            max_retries=3, retry_delays=(0, 0, 0), min_request_delay=0
+        ) as client:
+            items = client.get_daily_menu(
+                "s1", date(2026, 3, 16), "Lunch", "Trad", "05"
+            )
+
+        assert len(items) > 0
+        assert route.call_count == 2
+
+    @respx.mock
+    def test_retry_exhausted_raises(self):
+        route = respx.get(f"{BASE_URL}/CalendarView/GetDailyMenuitemsByGrade").mock(
+            return_value=httpx.Response(500)
+        )
+
+        with SchoolCafeClient(
+            max_retries=3, retry_delays=(0, 0, 0), min_request_delay=0
+        ) as client:
+            with pytest.raises(httpx.HTTPStatusError):
+                client.get_daily_menu("s1", date(2026, 3, 16), "Lunch", "Trad", "05")
+
+        assert route.call_count == 4
+
+    @respx.mock
+    def test_4xx_not_retried(self):
+        route = respx.get(f"{BASE_URL}/CalendarView/GetDailyMenuitemsByGrade").mock(
+            return_value=httpx.Response(404)
+        )
+
+        with SchoolCafeClient(
+            max_retries=3, retry_delays=(0, 0, 0), min_request_delay=0
+        ) as client:
+            with pytest.raises(httpx.HTTPStatusError):
+                client.get_daily_menu("s1", date(2026, 3, 16), "Lunch", "Trad", "05")
+
+        assert route.call_count == 1
+
+    @respx.mock
+    def test_timeout_retried(self, schoolcafe_fixture):
+        data = schoolcafe_fixture("normal_lunch")
+        route = respx.get(f"{BASE_URL}/CalendarView/GetDailyMenuitemsByGrade").mock(
+            side_effect=[
+                httpx.TimeoutException("timed out"),
+                httpx.Response(200, json=data),
+            ]
+        )
+
+        with SchoolCafeClient(
+            max_retries=3, retry_delays=(0, 0, 0), min_request_delay=0
+        ) as client:
+            items = client.get_daily_menu(
+                "s1", date(2026, 3, 16), "Lunch", "Trad", "05"
+            )
+
+        assert len(items) > 0
+        assert route.call_count == 2

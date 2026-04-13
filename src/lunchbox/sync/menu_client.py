@@ -1,4 +1,5 @@
 import logging
+import time
 from datetime import date
 
 import httpx
@@ -17,6 +18,8 @@ CATEGORY_ALIASES: dict[str, str] = {
     "milk": "Milk",
     "condiments": "Condiments",
 }
+
+RETRY_AFTER_CAP = 10
 
 
 def _extract_item_name(item) -> str | None:
@@ -98,6 +101,89 @@ class SchoolCafeClient:
         self._min_request_delay = min_request_delay
         self._last_request_time = 0.0
 
+    def _throttle(self) -> None:
+        """Sleep if less than _min_request_delay since last request."""
+        if self._min_request_delay <= 0:
+            return
+        now = time.monotonic()
+        elapsed = now - self._last_request_time
+        if elapsed < self._min_request_delay:
+            time.sleep(self._min_request_delay - elapsed)
+
+    def _request(self, url: str, **kwargs) -> httpx.Response:
+        """Make an HTTP GET with retry logic for transient failures."""
+        last_exc: Exception | None = None
+
+        for attempt in range(self._max_retries + 1):
+            self._throttle()
+            self._last_request_time = time.monotonic()
+
+            try:
+                response = self._client.get(url, **kwargs)
+                response.raise_for_status()
+                return response
+            except httpx.TimeoutException as exc:
+                last_exc = exc
+                if attempt < self._max_retries:
+                    delay = (
+                        self._retry_delays[attempt]
+                        if attempt < len(self._retry_delays)
+                        else self._retry_delays[-1]
+                    )
+                    logger.warning(
+                        "Request timeout (attempt %d/%d), retrying in %.1fs",
+                        attempt + 1,
+                        self._max_retries + 1,
+                        delay,
+                    )
+                    time.sleep(delay)
+                else:
+                    raise
+            except httpx.HTTPStatusError as exc:
+                last_exc = exc
+                status = exc.response.status_code
+
+                if status == 429:
+                    retry_after = exc.response.headers.get("Retry-After")
+                    if retry_after is not None:
+                        try:
+                            delay = min(float(retry_after), RETRY_AFTER_CAP)
+                        except (ValueError, TypeError):
+                            delay = (
+                                self._retry_delays[attempt]
+                                if attempt < len(self._retry_delays)
+                                else self._retry_delays[-1]
+                            )
+                    else:
+                        delay = (
+                            self._retry_delays[attempt]
+                            if attempt < len(self._retry_delays)
+                            else self._retry_delays[-1]
+                        )
+                elif 500 <= status < 600:
+                    delay = (
+                        self._retry_delays[attempt]
+                        if attempt < len(self._retry_delays)
+                        else self._retry_delays[-1]
+                    )
+                else:
+                    # 4xx (not 429) — don't retry
+                    raise
+
+                if attempt < self._max_retries:
+                    logger.warning(
+                        "HTTP %d (attempt %d/%d), retrying in %.1fs",
+                        status,
+                        attempt + 1,
+                        self._max_retries + 1,
+                        delay,
+                    )
+                    time.sleep(delay)
+                else:
+                    raise
+
+        raise last_exc  # type: ignore[misc]  # unreachable safety net
+
     def get_daily_menu(
         self,
         school_id: str,
@@ -115,11 +201,10 @@ class SchoolCafeClient:
             "PersonId": "",
         }
 
-        response = self._client.get(
+        response = self._request(
             f"{self.BASE_URL}/CalendarView/GetDailyMenuitemsByGrade",
             params=params,
         )
-        response.raise_for_status()
         data = response.json()
 
         drift_warnings = _detect_drift(data)
@@ -155,11 +240,10 @@ class SchoolCafeClient:
         return unique
 
     def search_schools(self, query: str) -> list[SchoolInfo]:
-        response = self._client.get(
+        response = self._request(
             f"{self.BASE_URL}/GetISDByShortName",
             params={"shortname": query},
         )
-        response.raise_for_status()
         districts = response.json()
 
         if not districts:
@@ -169,11 +253,10 @@ class SchoolCafeClient:
         if not district_id:
             return []
 
-        response = self._client.get(
+        response = self._request(
             f"{self.BASE_URL}/GetSchoolsList",
             params={"districtId": district_id},
         )
-        response.raise_for_status()
         schools = response.json()
 
         return [
