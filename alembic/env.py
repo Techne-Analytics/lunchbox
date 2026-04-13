@@ -9,9 +9,12 @@ import lunchbox.models  # noqa: F401 — registers models with Base
 
 config = context.config
 
-# Read DATABASE_URL directly so migrations don't require SECRET_KEY or other app settings
-database_url = os.environ.get("DATABASE_URL") or config.get_main_option(
-    "sqlalchemy.url"
+# Prefer DIRECT_DATABASE_URL for migrations (bypasses Neon connection pooler).
+# Falls back to DATABASE_URL for local dev.
+database_url = (
+    os.environ.get("DIRECT_DATABASE_URL")
+    or os.environ.get("DATABASE_URL")
+    or config.get_main_option("sqlalchemy.url")
 )
 if not database_url:
     raise RuntimeError(
