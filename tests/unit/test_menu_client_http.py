@@ -287,3 +287,83 @@ class TestRetry:
 
         assert len(items) > 0
         assert route.call_count == 2
+
+
+class TestGetWeeklyMenu:
+    @respx.mock
+    def test_returns_dict_by_date(self, schoolcafe_fixture):
+        data = schoolcafe_fixture("weekly_lunch")
+        respx.get(f"{BASE_URL}/CalendarView/GetWeeklyMenuitemsByGrade").mock(
+            return_value=httpx.Response(200, json=data)
+        )
+
+        with SchoolCafeClient(max_retries=0) as client:
+            result = client.get_weekly_menu(
+                "s1", date(2026, 4, 13), "Lunch", "Trad", "05"
+            )
+
+        assert len(result) == 3
+        assert date(2026, 4, 13) in result
+        assert date(2026, 4, 14) in result
+        assert date(2026, 4, 15) in result
+        names_apr13 = {item.item_name for item in result[date(2026, 4, 13)]}
+        assert "Pizza" in names_apr13
+        assert "Apple" in names_apr13
+
+    @respx.mock
+    def test_handles_partial_dates(self):
+        data = {
+            "4/13/2026": {"ENTREES": [{"MenuItemDescription": "Pizza"}]},
+            "4/14/2026": "not a dict",
+            "4/15/2026": {"ENTREES": [{"MenuItemDescription": "Tacos"}]},
+        }
+        respx.get(f"{BASE_URL}/CalendarView/GetWeeklyMenuitemsByGrade").mock(
+            return_value=httpx.Response(200, json=data)
+        )
+
+        with SchoolCafeClient(max_retries=0) as client:
+            result = client.get_weekly_menu(
+                "s1", date(2026, 4, 13), "Lunch", "Trad", "05"
+            )
+
+        assert date(2026, 4, 13) in result
+        assert date(2026, 4, 15) in result
+        assert date(2026, 4, 14) not in result
+
+    @respx.mock
+    def test_invalid_date_key_skipped(self):
+        data = {
+            "4/13/2026": {"ENTREES": [{"MenuItemDescription": "Pizza"}]},
+            "not-a-date": {"ENTREES": [{"MenuItemDescription": "Garbage"}]},
+        }
+        respx.get(f"{BASE_URL}/CalendarView/GetWeeklyMenuitemsByGrade").mock(
+            return_value=httpx.Response(200, json=data)
+        )
+
+        with SchoolCafeClient(max_retries=0) as client:
+            result = client.get_weekly_menu(
+                "s1", date(2026, 4, 13), "Lunch", "Trad", "05"
+            )
+
+        assert date(2026, 4, 13) in result
+        assert len(result) == 1
+
+    @respx.mock
+    def test_non_dict_response_raises(self):
+        respx.get(f"{BASE_URL}/CalendarView/GetWeeklyMenuitemsByGrade").mock(
+            return_value=httpx.Response(200, json=["not", "a", "dict"])
+        )
+
+        with SchoolCafeClient(max_retries=0) as client:
+            with pytest.raises(ValueError, match="non-dict"):
+                client.get_weekly_menu("s1", date(2026, 4, 13), "Lunch", "Trad", "05")
+
+    @respx.mock
+    def test_malformed_json_raises(self):
+        respx.get(f"{BASE_URL}/CalendarView/GetWeeklyMenuitemsByGrade").mock(
+            return_value=httpx.Response(200, content=b"not json")
+        )
+
+        with SchoolCafeClient(max_retries=0) as client:
+            with pytest.raises(ValueError, match="invalid JSON"):
+                client.get_weekly_menu("s1", date(2026, 4, 13), "Lunch", "Trad", "05")
