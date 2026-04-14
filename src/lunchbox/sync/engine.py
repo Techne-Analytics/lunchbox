@@ -55,7 +55,7 @@ def sync_subscription(
     errors = []
 
     for sync_date in dates:
-        for meal_config in subscription.meal_configs or []:
+        for meal_config in subscription.meal_configs:
             meal_type = meal_config["meal_type"]
             serving_line = meal_config["serving_line"]
 
