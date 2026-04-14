@@ -1,3 +1,4 @@
+import json
 import logging
 import time
 from datetime import date
@@ -194,7 +195,16 @@ class SchoolCafeClient:
             f"{self.BASE_URL}/CalendarView/GetDailyMenuitemsByGrade",
             params=params,
         )
-        data = response.json()
+
+        try:
+            data = response.json()
+        except json.JSONDecodeError:
+            logger.warning("SchoolCafe returned invalid JSON for %s %s", school_id, menu_date)
+            return []
+
+        if not isinstance(data, dict):
+            logger.warning("SchoolCafe returned non-dict response: %s", type(data).__name__)
+            return []
 
         drift_warnings = _detect_drift(data)
         for warning in drift_warnings:

@@ -115,6 +115,66 @@ class TestSearchSchools:
         assert result == []
 
 
+class TestResponseValidation:
+    @respx.mock
+    def test_malformed_json_returns_empty(self):
+        respx.get(f"{BASE_URL}/CalendarView/GetDailyMenuitemsByGrade").mock(
+            return_value=httpx.Response(200, content=b"not json at all")
+        )
+        with SchoolCafeClient(max_retries=0) as client:
+            items = client.get_daily_menu("s1", date(2026, 3, 16), "Lunch", "Trad", "05")
+        assert items == []
+
+    @respx.mock
+    def test_non_dict_response_returns_empty(self):
+        respx.get(f"{BASE_URL}/CalendarView/GetDailyMenuitemsByGrade").mock(
+            return_value=httpx.Response(200, json=["not", "a", "dict"])
+        )
+        with SchoolCafeClient(max_retries=0) as client:
+            items = client.get_daily_menu("s1", date(2026, 3, 16), "Lunch", "Trad", "05")
+        assert items == []
+
+    @respx.mock
+    def test_null_response_returns_empty(self):
+        respx.get(f"{BASE_URL}/CalendarView/GetDailyMenuitemsByGrade").mock(
+            return_value=httpx.Response(200, json=None)
+        )
+        with SchoolCafeClient(max_retries=0) as client:
+            items = client.get_daily_menu("s1", date(2026, 3, 16), "Lunch", "Trad", "05")
+        assert items == []
+
+    @respx.mock
+    def test_search_malformed_json_returns_empty(self):
+        respx.get(f"{BASE_URL}/GetISDByShortName").mock(
+            return_value=httpx.Response(200, content=b"not json")
+        )
+        with SchoolCafeClient(max_retries=0) as client:
+            result = client.search_schools("test")
+        assert result == []
+
+    @respx.mock
+    def test_search_non_list_districts_returns_empty(self):
+        respx.get(f"{BASE_URL}/GetISDByShortName").mock(
+            return_value=httpx.Response(200, json={"error": "bad request"})
+        )
+        with SchoolCafeClient(max_retries=0) as client:
+            result = client.search_schools("test")
+        assert result == []
+
+    @respx.mock
+    def test_search_non_list_schools_returns_empty(self, schoolcafe_fixture):
+        districts = schoolcafe_fixture("search_districts")
+        respx.get(f"{BASE_URL}/GetISDByShortName").mock(
+            return_value=httpx.Response(200, json=districts)
+        )
+        respx.get(f"{BASE_URL}/GetSchoolsList").mock(
+            return_value=httpx.Response(200, json={"error": "bad"})
+        )
+        with SchoolCafeClient(max_retries=0) as client:
+            result = client.search_schools("springfield")
+        assert result == []
+
+
 class TestRetry:
     @respx.mock
     def test_retry_succeeds_on_second_attempt(self, schoolcafe_fixture):
