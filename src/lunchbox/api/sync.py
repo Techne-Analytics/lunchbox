@@ -37,14 +37,18 @@ def trigger_sync(
     if total_items >= settings.max_menu_items:
         raise HTTPException(status_code=400, detail="Menu item limit reached")
 
-    with SchoolCafeClient() as client:
-        log = sync_subscription(
-            db,
-            sub,
-            client,
-            days=settings.days_to_fetch,
-            skip_weekends=settings.skip_weekends,
-        )
+    try:
+        with SchoolCafeClient() as client:
+            log = sync_subscription(
+                db,
+                sub,
+                client,
+                days=settings.days_to_fetch,
+                skip_weekends=settings.skip_weekends,
+            )
+    except Exception:
+        logger.exception("Sync trigger failed for subscription %s", subscription_id)
+        raise HTTPException(status_code=500, detail="Sync failed, please try again later")
 
     return {
         "status": log.status,
