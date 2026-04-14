@@ -1,7 +1,8 @@
 import json
 import logging
 import time
-from datetime import date
+from datetime import date, datetime, timezone
+from email.utils import parsedate_to_datetime
 
 import httpx
 
@@ -94,6 +95,8 @@ class SchoolCafeClient:
         retry_delays: tuple[float, ...] = (1, 2, 4),
         min_request_delay: float = 0.1,
     ):
+        if max_retries < 0:
+            raise ValueError(f"max_retries must be >= 0, got {max_retries}")
         self._client = httpx.Client(
             timeout=timeout, headers={"Accept": "application/json"}
         )
@@ -153,7 +156,20 @@ class SchoolCafeClient:
                         try:
                             delay = max(0, min(float(retry_after), RETRY_AFTER_CAP))
                         except (ValueError, TypeError):
-                            delay = self._get_delay(attempt)
+                            # Try HTTP-date format (RFC 7231)
+                            try:
+                                dt = parsedate_to_datetime(retry_after)
+                                delay = max(
+                                    0,
+                                    min(
+                                        (
+                                            dt - datetime.now(timezone.utc)
+                                        ).total_seconds(),
+                                        RETRY_AFTER_CAP,
+                                    ),
+                                )
+                            except (ValueError, TypeError):
+                                delay = self._get_delay(attempt)
                     else:
                         delay = self._get_delay(attempt)
                 elif 500 <= status < 600:
