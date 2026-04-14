@@ -64,13 +64,16 @@ def sync_subscription(
     # Fetch weekly data once per (week, meal_config)
     fetched: dict[tuple[str, str, int, int], dict[date, list]] = {}
     for (iso_year, iso_week), week_dates in weeks.items():
+        # Anchor on the ISO Monday of the week — safer than passing an arbitrary
+        # mid-week date in case SchoolCafe interprets week_date as the start.
+        monday = week_dates[0] - timedelta(days=week_dates[0].weekday())
         for meal_config in subscription.meal_configs:
             meal_type = meal_config["meal_type"]
             serving_line = meal_config["serving_line"]
             try:
                 week_data = client.get_weekly_menu(
                     school_id=subscription.school_id,
-                    week_date=week_dates[0],
+                    week_date=monday,
                     meal_type=meal_type,
                     serving_line=serving_line,
                     grade=subscription.grade,
