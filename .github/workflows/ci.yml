@@ -50,6 +50,7 @@ jobs:
       - name: Check Alembic migrations
         env:
           DATABASE_URL: postgresql://lunchbox:test@localhost:5432/lunchbox_test
+          SECRET_KEY: test-ci-secret
         run: |
           if ls alembic/versions/*.py 1>/dev/null 2>&1; then
             alembic upgrade head
