@@ -32,13 +32,30 @@ def sync_subscription(
     skip_weekends: bool = True,
 ) -> SyncLog:
     """Sync menu data for a single subscription."""
+    if not subscription.meal_configs:
+        logger.warning(
+            "Subscription %s has no meal configs, skipping",
+            subscription.display_name,
+        )
+        log = SyncLog(
+            subscription_id=subscription.id,
+            status="skipped",
+            dates_synced=0,
+            items_fetched=0,
+            error_message="No meal configs configured",
+            duration_ms=0,
+        )
+        db.add(log)
+        db.commit()
+        return log
+
     started_at = time.time()
     dates = get_sync_dates(days, skip_weekends)
     total_items = 0
     errors = []
 
     for sync_date in dates:
-        for meal_config in subscription.meal_configs or []:
+        for meal_config in subscription.meal_configs:
             meal_type = meal_config["meal_type"]
             serving_line = meal_config["serving_line"]
 
