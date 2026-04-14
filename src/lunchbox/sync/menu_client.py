@@ -103,6 +103,8 @@ class SchoolCafeClient:
         self._last_request_time = 0.0
 
     def _get_delay(self, attempt: int) -> float:
+        if not self._retry_delays:
+            return 0.0
         if attempt < len(self._retry_delays):
             return self._retry_delays[attempt]
         return self._retry_delays[-1]
@@ -149,7 +151,7 @@ class SchoolCafeClient:
                     retry_after = exc.response.headers.get("Retry-After")
                     if retry_after is not None:
                         try:
-                            delay = min(float(retry_after), RETRY_AFTER_CAP)
+                            delay = max(0, min(float(retry_after), RETRY_AFTER_CAP))
                         except (ValueError, TypeError):
                             delay = self._get_delay(attempt)
                     else:
@@ -257,10 +259,19 @@ class SchoolCafeClient:
             return []
 
         if not isinstance(districts, list) or not districts:
+            if districts:
+                logger.warning(
+                    "SchoolCafe returned non-list districts response: %s",
+                    type(districts).__name__,
+                )
             return []
 
         district_id = districts[0].get("ISDId")
         if not district_id:
+            logger.warning(
+                "SchoolCafe district missing ISDId, keys: %s",
+                list(districts[0].keys()),
+            )
             return []
 
         response = self._request(
