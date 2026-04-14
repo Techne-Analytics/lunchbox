@@ -1,5 +1,8 @@
+import json
 import logging
-from datetime import date
+import time
+from datetime import date, datetime, timezone
+from email.utils import parsedate_to_datetime
 
 import httpx
 
@@ -17,6 +20,8 @@ CATEGORY_ALIASES: dict[str, str] = {
     "milk": "Milk",
     "condiments": "Condiments",
 }
+
+RETRY_AFTER_CAP = 10
 
 
 def _extract_item_name(item) -> str | None:
@@ -83,10 +88,109 @@ class SchoolCafeClient:
 
     BASE_URL = "https://webapis.schoolcafe.com/api"
 
-    def __init__(self, timeout: int = 30):
+    def __init__(
+        self,
+        timeout: int = 30,
+        max_retries: int = 3,
+        retry_delays: tuple[float, ...] = (1, 2, 4),
+        min_request_delay: float = 0.1,
+    ):
+        if max_retries < 0:
+            raise ValueError(f"max_retries must be >= 0, got {max_retries}")
         self._client = httpx.Client(
             timeout=timeout, headers={"Accept": "application/json"}
         )
+        self._max_retries = max_retries
+        self._retry_delays = retry_delays
+        self._min_request_delay = min_request_delay
+        self._last_request_time = 0.0
+
+    def _get_delay(self, attempt: int) -> float:
+        if not self._retry_delays:
+            return 0.0
+        if attempt < len(self._retry_delays):
+            return self._retry_delays[attempt]
+        return self._retry_delays[-1]
+
+    def _throttle(self) -> None:
+        """Sleep if less than _min_request_delay since last request."""
+        if self._min_request_delay <= 0:
+            return
+        now = time.monotonic()
+        elapsed = now - self._last_request_time
+        if elapsed < self._min_request_delay:
+            time.sleep(self._min_request_delay - elapsed)
+
+    def _request(self, url: str, **kwargs) -> httpx.Response:
+        """Make an HTTP GET with retry logic for transient failures."""
+        last_exc: Exception | None = None
+
+        for attempt in range(self._max_retries + 1):
+            self._throttle()
+            self._last_request_time = time.monotonic()
+
+            try:
+                response = self._client.get(url, **kwargs)
+                response.raise_for_status()
+                return response
+            except httpx.TimeoutException as exc:
+                last_exc = exc
+                if attempt < self._max_retries:
+                    delay = self._get_delay(attempt)
+                    logger.warning(
+                        "Request timeout (attempt %d/%d), retrying in %.1fs",
+                        attempt + 1,
+                        self._max_retries + 1,
+                        delay,
+                    )
+                    time.sleep(delay)
+                else:
+                    raise
+            except httpx.HTTPStatusError as exc:
+                last_exc = exc
+                status = exc.response.status_code
+
+                if status == 429:
+                    retry_after = exc.response.headers.get("Retry-After")
+                    if retry_after is not None:
+                        try:
+                            delay = max(0, min(float(retry_after), RETRY_AFTER_CAP))
+                        except (ValueError, TypeError):
+                            # Try HTTP-date format (RFC 7231)
+                            try:
+                                dt = parsedate_to_datetime(retry_after)
+                                delay = max(
+                                    0,
+                                    min(
+                                        (
+                                            dt - datetime.now(timezone.utc)
+                                        ).total_seconds(),
+                                        RETRY_AFTER_CAP,
+                                    ),
+                                )
+                            except (ValueError, TypeError):
+                                delay = self._get_delay(attempt)
+                    else:
+                        delay = self._get_delay(attempt)
+                elif 500 <= status < 600:
+                    delay = self._get_delay(attempt)
+                else:
+                    # 4xx (not 429) — don't retry
+                    raise
+
+                if attempt < self._max_retries:
+                    logger.warning(
+                        "HTTP %d (attempt %d/%d), retrying in %.1fs",
+                        status,
+                        attempt + 1,
+                        self._max_retries + 1,
+                        delay,
+                    )
+                    time.sleep(delay)
+                else:
+                    raise
+
+        raise last_exc  # type: ignore[misc]  # unreachable safety net
 
     def get_daily_menu(
         self,
@@ -105,12 +209,24 @@ class SchoolCafeClient:
             "PersonId": "",
         }
 
-        response = self._client.get(
+        response = self._request(
             f"{self.BASE_URL}/CalendarView/GetDailyMenuitemsByGrade",
             params=params,
         )
-        response.raise_for_status()
-        data = response.json()
+
+        try:
+            data = response.json()
+        except json.JSONDecodeError:
+            logger.warning(
+                "SchoolCafe returned invalid JSON for %s %s", school_id, menu_date
+            )
+            return []
+
+        if not isinstance(data, dict):
+            logger.warning(
+                "SchoolCafe returned non-dict response: %s", type(data).__name__
+            )
+            return []
 
         drift_warnings = _detect_drift(data)
         for warning in drift_warnings:
@@ -145,26 +261,55 @@ class SchoolCafeClient:
         return unique
 
     def search_schools(self, query: str) -> list[SchoolInfo]:
-        response = self._client.get(
+        response = self._request(
             f"{self.BASE_URL}/GetISDByShortName",
             params={"shortname": query},
         )
-        response.raise_for_status()
-        districts = response.json()
 
-        if not districts:
+        try:
+            districts = response.json()
+        except json.JSONDecodeError:
+            logger.warning(
+                "SchoolCafe returned invalid JSON for districts query: %s", query
+            )
+            return []
+
+        if not isinstance(districts, list) or not districts:
+            if districts:
+                logger.warning(
+                    "SchoolCafe returned non-list districts response: %s",
+                    type(districts).__name__,
+                )
             return []
 
         district_id = districts[0].get("ISDId")
         if not district_id:
+            logger.warning(
+                "SchoolCafe district missing ISDId, keys: %s",
+                list(districts[0].keys()),
+            )
             return []
 
-        response = self._client.get(
+        response = self._request(
             f"{self.BASE_URL}/GetSchoolsList",
             params={"districtId": district_id},
         )
-        response.raise_for_status()
-        schools = response.json()
+
+        try:
+            schools = response.json()
+        except json.JSONDecodeError:
+            logger.warning(
+                "SchoolCafe returned invalid JSON for schools list: district %s",
+                district_id,
+            )
+            return []
+
+        if not isinstance(schools, list):
+            logger.warning(
+                "SchoolCafe returned non-list schools response: %s",
+                type(schools).__name__,
+            )
+            return []
 
         return [
             SchoolInfo(
