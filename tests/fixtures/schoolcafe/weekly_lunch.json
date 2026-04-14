@@ -1,0 +1,27 @@
+{
+  "4/13/2026": {
+    "ENTREES": [
+      {"MenuItemDescription": "Pizza", "Category": "ENTREES"},
+      {"MenuItemDescription": "Burger", "Category": "ENTREES"}
+    ],
+    "FRUITS": [
+      {"MenuItemDescription": "Apple", "Category": "FRUITS"}
+    ]
+  },
+  "4/14/2026": {
+    "ENTREES": [
+      {"MenuItemDescription": "Tacos", "Category": "ENTREES"}
+    ],
+    "FRUITS": [
+      {"MenuItemDescription": "Orange", "Category": "FRUITS"}
+    ]
+  },
+  "4/15/2026": {
+    "ENTREES": [
+      {"MenuItemDescription": "Chicken Nuggets", "Category": "ENTREES"}
+    ],
+    "FRUITS": [
+      {"MenuItemDescription": "Pear", "Category": "FRUITS"}
+    ]
+  }
+}

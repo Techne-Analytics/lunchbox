@@ -15,7 +15,7 @@ class TestSyncErrors:
         db.commit()
 
         mock_client = MagicMock()
-        mock_client.get_daily_menu.side_effect = Exception("API down")
+        mock_client.get_weekly_menu.side_effect = Exception("API down")
 
         log = sync_subscription(db, sub, mock_client, days=3, skip_weekends=False)
 
@@ -29,28 +29,43 @@ class TestSyncErrors:
         )
 
     def test_mixed_failure_status_partial(self, db):
+        from datetime import date, timedelta
+
         user = create_user(db)
-        sub = create_subscription(db, user)
+        sub = create_subscription(
+            db,
+            user,
+            meal_configs=[
+                {"meal_type": "Lunch", "serving_line": "Traditional", "sort_order": 0},
+                {
+                    "meal_type": "Breakfast",
+                    "serving_line": "Traditional",
+                    "sort_order": 1,
+                },
+            ],
+        )
         db.commit()
 
-        call_count = 0
-
-        def side_effect(*args, **kwargs):
-            nonlocal call_count
-            call_count += 1
-            if call_count == 2:
-                raise Exception("Intermittent failure")
-            return [MenuItemData(category="Entrees", item_name="Burger")]
+        today = date.today()
+        week_data = {
+            today: [MenuItemData(category="Entrees", item_name="Burger")],
+            today + timedelta(days=1): [
+                MenuItemData(category="Entrees", item_name="Burger")
+            ],
+        }
 
         mock_client = MagicMock()
-        mock_client.get_daily_menu.side_effect = side_effect
+        mock_client.get_weekly_menu.side_effect = [
+            Exception("Intermittent failure"),
+            week_data,
+        ]
 
-        log = sync_subscription(db, sub, mock_client, days=3, skip_weekends=False)
+        log = sync_subscription(db, sub, mock_client, days=2, skip_weekends=False)
 
         assert log.status == "partial"
         assert log.items_fetched == 2
         # dates_synced reports total requested, not successful — by design
-        assert log.dates_synced == 3
+        assert log.dates_synced == 2
         assert "Intermittent failure" in log.error_message
 
     def test_timeout_handled_gracefully(self, db):
@@ -59,7 +74,7 @@ class TestSyncErrors:
         db.commit()
 
         mock_client = MagicMock()
-        mock_client.get_daily_menu.side_effect = httpx.TimeoutException("timed out")
+        mock_client.get_weekly_menu.side_effect = httpx.TimeoutException("timed out")
 
         log = sync_subscription(db, sub, mock_client, days=1, skip_weekends=False)
 
@@ -72,7 +87,7 @@ class TestSyncErrors:
         db.commit()
 
         mock_client = MagicMock()
-        mock_client.get_daily_menu.side_effect = httpx.HTTPStatusError(
+        mock_client.get_weekly_menu.side_effect = httpx.HTTPStatusError(
             "500 Internal Server Error",
             request=httpx.Request("GET", "https://example.com"),
             response=httpx.Response(500),
@@ -89,7 +104,7 @@ class TestSyncErrors:
         db.commit()
 
         mock_client = MagicMock()
-        mock_client.get_daily_menu.return_value = []
+        mock_client.get_weekly_menu.return_value = {}
 
         log = sync_subscription(db, sub, mock_client, days=2, skip_weekends=False)
 
@@ -102,7 +117,7 @@ class TestSyncErrors:
         db.commit()
 
         mock_client = MagicMock()
-        mock_client.get_daily_menu.return_value = []
+        mock_client.get_weekly_menu.return_value = {}
 
         log = sync_subscription(db, sub, mock_client, days=1, skip_weekends=False)
 

@@ -27,7 +27,7 @@ class TestCronEndpoint:
             mock_settings.skip_weekends = False
 
             mock_instance = MagicMock()
-            mock_instance.get_daily_menu.return_value = []
+            mock_instance.get_weekly_menu.return_value = {}
             mock_instance.__enter__ = MagicMock(return_value=mock_instance)
             mock_instance.__exit__ = MagicMock(return_value=False)
             MockClient.return_value = mock_instance

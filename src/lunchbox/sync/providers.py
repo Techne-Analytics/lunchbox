@@ -25,4 +25,13 @@ class MenuProvider(Protocol):
         grade: str,
     ) -> list[MenuItemData]: ...
 
+    def get_weekly_menu(
+        self,
+        school_id: str,
+        week_date: date,
+        meal_type: str,
+        serving_line: str,
+        grade: str,
+    ) -> dict[date, list[MenuItemData]]: ...
+
     def search_schools(self, query: str) -> list[SchoolInfo]: ...
