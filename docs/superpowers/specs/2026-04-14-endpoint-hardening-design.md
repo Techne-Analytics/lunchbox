@@ -49,7 +49,7 @@ except IntegrityError:
 
 **File:** `src/lunchbox/sync/engine.py`
 
-Before the date/meal loop in `sync_subscription()`, check if `meal_configs` is falsy. Log a warning and return a SyncLog with `status="skipped"` so it appears in sync history.
+At the top of `sync_subscription()`, before `started_at` and `get_sync_dates()`, check if `meal_configs` is falsy. This must be early because `len(subscription.meal_configs)` on line 95 crashes with `TypeError` when `meal_configs` is `None`. Log a warning and return a SyncLog with `status="skipped"` so it appears in sync history.
 
 ```python
 if not subscription.meal_configs:
