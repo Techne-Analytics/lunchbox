@@ -234,6 +234,76 @@ class SchoolCafeClient:
 
         return self._parse_response(data)
 
+    def get_weekly_menu(
+        self,
+        school_id: str,
+        week_date: date,
+        meal_type: str,
+        serving_line: str,
+        grade: str,
+    ) -> dict[date, list[MenuItemData]]:
+        """Fetch a week's menu in one call. Returns dict mapping date to items.
+
+        SchoolCafe returns Mon-Fri for the week containing week_date.
+        Date keys in the response are US format (M/D/YYYY).
+        """
+        params = {
+            "SchoolId": school_id,
+            "ServingDate": week_date.isoformat(),
+            "ServingLine": serving_line,
+            "MealType": meal_type,
+            "Grade": grade,
+            "PersonId": "",
+        }
+
+        response = self._request(
+            f"{self.BASE_URL}/CalendarView/GetWeeklyMenuitemsByGrade",
+            params=params,
+        )
+
+        try:
+            data = response.json()
+        except json.JSONDecodeError:
+            logger.warning(
+                "SchoolCafe returned invalid JSON for weekly %s %s",
+                school_id,
+                week_date,
+            )
+            return {}
+
+        if not isinstance(data, dict):
+            logger.warning(
+                "SchoolCafe weekly returned non-dict response: %s",
+                type(data).__name__,
+            )
+            return {}
+
+        result: dict[date, list[MenuItemData]] = {}
+        for date_str, day_data in data.items():
+            try:
+                parsed_date = datetime.strptime(date_str, "%m/%d/%Y").date()
+            except (ValueError, TypeError):
+                logger.warning(
+                    "SchoolCafe weekly: unparseable date key %r, skipping", date_str
+                )
+                continue
+
+            if not isinstance(day_data, dict):
+                logger.warning(
+                    "SchoolCafe weekly: non-dict day_data for %s: %s",
+                    date_str,
+                    type(day_data).__name__,
+                )
+                continue
+
+            drift_warnings = _detect_drift(day_data)
+            for warning in drift_warnings:
+                logger.warning("SchoolCafe weekly schema drift: %s", warning)
+
+            result[parsed_date] = self._parse_response(day_data)
+
+        return result
+
     def _parse_response(self, data: dict) -> list[MenuItemData]:
         items = []
         for category, raw_items in data.items():
