@@ -243,9 +243,14 @@ class SchoolCafeClient:
             f"{self.BASE_URL}/GetISDByShortName",
             params={"shortname": query},
         )
-        districts = response.json()
 
-        if not districts:
+        try:
+            districts = response.json()
+        except json.JSONDecodeError:
+            logger.warning("SchoolCafe returned invalid JSON for districts query: %s", query)
+            return []
+
+        if not isinstance(districts, list) or not districts:
             return []
 
         district_id = districts[0].get("ISDId")
@@ -256,7 +261,16 @@ class SchoolCafeClient:
             f"{self.BASE_URL}/GetSchoolsList",
             params={"districtId": district_id},
         )
-        schools = response.json()
+
+        try:
+            schools = response.json()
+        except json.JSONDecodeError:
+            logger.warning("SchoolCafe returned invalid JSON for schools list: district %s", district_id)
+            return []
+
+        if not isinstance(schools, list):
+            logger.warning("SchoolCafe returned non-list schools response: %s", type(schools).__name__)
+            return []
 
         return [
             SchoolInfo(
