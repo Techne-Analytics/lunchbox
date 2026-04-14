@@ -52,10 +52,12 @@ Implementation:
 3. For each `(date_str, day_data)` pair:
    - Parse date with `datetime.strptime(date_str, "%m/%d/%Y").date()` — on `ValueError`, log warning and skip that date
    - Validate `day_data` is a dict — log warning and skip if not
-   - Run existing `_detect_drift(day_data)` and log warnings
-   - Run existing `_parse_response(day_data)` to get `list[MenuItemData]`
+   - Run existing `_detect_drift(day_data)` (module-level function, no `self.`) and log warnings
+   - Run existing `self._parse_response(day_data)` (instance method) to get `list[MenuItemData]`
    - Add to result dict
 4. Return result
+
+**Note:** `_detect_drift` is a module-level function in `menu_client.py`. `_parse_response` is an instance method on `SchoolCafeClient`. Use the correct call form for each.
 
 ### `MenuProvider` Protocol update
 
@@ -63,43 +65,53 @@ Add `get_weekly_menu()` to the `MenuProvider` Protocol in `providers.py`. Existi
 
 ### `sync_subscription()` refactor
 
-Replace the inner loop:
+The weekly endpoint returns Mon-Fri for the week containing the requested date. With `days_to_fetch=7` and `skip_weekends=True`, dates may span two weeks. We need to fetch each unique week.
 
 ```python
-# Before:
-for sync_date in dates:
+# Group dates by ISO week (year, week_number)
+from collections import defaultdict
+weeks: dict[tuple[int, int], list[date]] = defaultdict(list)
+for d in dates:
+    iso_year, iso_week, _ = d.isocalendar()
+    weeks[(iso_year, iso_week)].append(d)
+
+# Fetch one weekly call per (week, meal_config). Use first date in the week as week_date.
+fetched: dict[tuple[str, str, int, int], dict[date, list[MenuItemData]]] = {}
+for (iso_year, iso_week), week_dates in weeks.items():
     for meal_config in subscription.meal_configs:
-        items = client.get_daily_menu(school_id, sync_date, meal_type, ...)
-        # ... upsert per (sync_date, meal_type)
+        meal_type = meal_config["meal_type"]
+        serving_line = meal_config["serving_line"]
+        try:
+            week_data = client.get_weekly_menu(
+                school_id=subscription.school_id,
+                week_date=week_dates[0],
+                meal_type=meal_type,
+                serving_line=serving_line,
+                grade=subscription.grade,
+            )
+            fetched[(meal_type, serving_line, iso_year, iso_week)] = week_data
+        except Exception as e:
+            logger.error(
+                "Weekly fetch failed for %s week %d-%d (%s): %s",
+                meal_type, iso_year, iso_week, subscription.display_name, e,
+            )
+            # Append one error per missed (date, meal_type) so status accounting stays consistent
+            for d in week_dates:
+                errors.append(f"{meal_type} {d}: weekly fetch failed: {e}")
 
-# After:
-week_dates_by_meal: dict[tuple[str, str], dict[date, list[MenuItemData]]] = {}
-for meal_config in subscription.meal_configs:
-    meal_type = meal_config["meal_type"]
-    serving_line = meal_config["serving_line"]
-    try:
-        week_data = client.get_weekly_menu(
-            school_id=subscription.school_id,
-            week_date=dates[0],
-            meal_type=meal_type,
-            serving_line=serving_line,
-            grade=subscription.grade,
-        )
-        week_dates_by_meal[(meal_type, serving_line)] = week_data
-    except Exception as e:
-        logger.error("Weekly fetch failed for %s %s: %s", meal_type, subscription.display_name, e)
-        errors.append(f"{meal_type} weekly: {e}")
-
+# Per-date upsert (delete-then-insert with savepoint) — UNCHANGED logic, only fetch source differs
 for sync_date in dates:
     for meal_config in subscription.meal_configs:
         meal_type = meal_config["meal_type"]
         serving_line = meal_config["serving_line"]
-        week_data = week_dates_by_meal.get((meal_type, serving_line), {})
+        iso_year, iso_week, _ = sync_date.isocalendar()
+        week_data = fetched.get((meal_type, serving_line, iso_year, iso_week), {})
         items = week_data.get(sync_date, [])
-        # ... existing upsert logic for (sync_date, meal_type)
+        # ... existing nested savepoint + delete + insert logic
+        total_items += len(items)
 ```
 
-The per-date upsert (delete-then-insert with savepoint) is unchanged. Only the fetch source moves.
+**Why one error per (date, meal_type)** when a weekly call fails: keeps `len(errors) == total_expected` math intact for status reporting (`engine.py:112`). A full-failure week with 5 dates × 2 meals correctly reports `status="error"`, not `"partial"`.
 
 ### Error handling
 
@@ -111,7 +123,7 @@ The per-date upsert (delete-then-insert with savepoint) is unchanged. Only the f
 
 `days_to_fetch=7` means we call once per meal_type per subscription. Multiple meal_types (Lunch, Breakfast) make separate calls. The throttle (`min_request_delay=0.1`) still applies between calls.
 
-If `days_to_fetch > 5`, the week endpoint covers Mon-Fri only. Days outside the current week (e.g., next Monday) won't be fetched. **Mitigation**: if `len(dates) > 5` or any `sync_date.weekday() < dates[0].weekday()`, fall back to fetching multiple weeks. For now, since `days_to_fetch=7` and we skip weekends, all dates fall in one week — this is a non-issue at default config. Document the limit in the method docstring.
+The weekly endpoint covers Mon-Fri for the requested week. With `days_to_fetch=7` and `skip_weekends=True`, dates span 7 weekdays = the rest of this week + start of next week. The engine groups dates by ISO week and makes one weekly call per (week, meal_config). For typical config (7 weekdays, 2 meals, 1 subscription), this is 4 calls total: 2 weeks × 2 meals.
 
 ### What changes
 
@@ -145,8 +157,8 @@ If `days_to_fetch > 5`, the week endpoint covers Mon-Fri only. Days outside the 
 
 | Metric | Before | After |
 |--------|--------|-------|
-| API calls per subscription per cron | 14 (7 days × 2 meals) | 2 (1 week × 2 meals) |
-| API calls at 20 subscriptions | 280 | 40 |
-| Throttle baseline (0.1s × calls) | 28s | 4s |
+| API calls per subscription per cron | 14 (7 days × 2 meals) | up to 4 (≤2 weeks × 2 meals) |
+| API calls at 20 subscriptions | 280 | up to 80 |
+| Throttle baseline (0.1s × calls) | 28s | up to 8s |
 
-Headroom inside the 60s Vercel function timeout grows substantially.
+3.5x reduction in API calls at default config, with headroom inside the 60s Vercel function timeout growing substantially.
