@@ -298,7 +298,9 @@ class SchoolCafeClient:
 
             drift_warnings = _detect_drift(day_data)
             for warning in drift_warnings:
-                logger.warning("SchoolCafe weekly schema drift: %s", warning)
+                logger.warning(
+                    "SchoolCafe schema drift [weekly %s]: %s", parsed_date, warning
+                )
 
             result[parsed_date] = self._parse_response(day_data)
 
