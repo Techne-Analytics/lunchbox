@@ -105,7 +105,14 @@ def sync_subscription(
             if week_data is None:
                 continue
 
-            items = week_data.get(sync_date, [])
+            # If the weekly response doesn't include this date (weekend, holiday,
+            # or unexpected truncation), preserve existing data rather than
+            # silently wiping it. Cache-invalidation-by-delete only fires when
+            # SchoolCafe explicitly returns an empty list for the date.
+            if sync_date not in week_data:
+                continue
+
+            items = week_data[sync_date]
 
             # Savepoint so DB errors don't corrupt the session
             nested = db.begin_nested()
