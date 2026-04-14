@@ -1,5 +1,6 @@
 import logging
 import time
+from collections import defaultdict
 from datetime import date, timedelta
 
 from sqlalchemy.orm import Session
@@ -54,58 +55,90 @@ def sync_subscription(
     total_items = 0
     errors = []
 
-    for sync_date in dates:
+    # Group dates by ISO week so we make one bulk call per (week, meal_config)
+    weeks: dict[tuple[int, int], list[date]] = defaultdict(list)
+    for d in dates:
+        iso_year, iso_week, _ = d.isocalendar()
+        weeks[(iso_year, iso_week)].append(d)
+
+    # Fetch weekly data once per (week, meal_config)
+    fetched: dict[tuple[str, str, int, int], dict[date, list]] = {}
+    for (iso_year, iso_week), week_dates in weeks.items():
         for meal_config in subscription.meal_configs:
             meal_type = meal_config["meal_type"]
             serving_line = meal_config["serving_line"]
-
             try:
-                items = client.get_daily_menu(
+                week_data = client.get_weekly_menu(
                     school_id=subscription.school_id,
-                    menu_date=sync_date,
+                    week_date=week_dates[0],
                     meal_type=meal_type,
                     serving_line=serving_line,
                     grade=subscription.grade,
                 )
-
-                # Savepoint so DB errors don't corrupt the session
-                nested = db.begin_nested()
-                try:
-                    db.query(MenuItem).filter(
-                        MenuItem.subscription_id == subscription.id,
-                        MenuItem.menu_date == sync_date,
-                        MenuItem.meal_type == meal_type,
-                    ).delete()
-
-                    for item in items:
-                        db.add(
-                            MenuItem(
-                                subscription_id=subscription.id,
-                                school_id=subscription.school_id,
-                                menu_date=sync_date,
-                                meal_type=meal_type,
-                                serving_line=serving_line,
-                                grade=subscription.grade,
-                                category=item.category,
-                                item_name=item.item_name,
-                            )
-                        )
-                    nested.commit()
-                except Exception:
-                    nested.rollback()
-                    raise
-
-                total_items += len(items)
-
+                fetched[(meal_type, serving_line, iso_year, iso_week)] = week_data
             except Exception as e:
                 logger.error(
-                    "Failed to sync %s %s for %s: %s",
+                    "Weekly fetch failed for %s week %d-%d (%s): %s",
+                    meal_type,
+                    iso_year,
+                    iso_week,
+                    subscription.display_name,
+                    e,
+                )
+                # One error per missed (date, meal_type) so status accounting stays consistent
+                for d in week_dates:
+                    errors.append(f"{meal_type} {d}: weekly fetch failed: {e}")
+
+    # Per-date upsert from the cached weekly data
+    for sync_date in dates:
+        for meal_config in subscription.meal_configs:
+            meal_type = meal_config["meal_type"]
+            serving_line = meal_config["serving_line"]
+            iso_year, iso_week, _ = sync_date.isocalendar()
+            week_data = fetched.get((meal_type, serving_line, iso_year, iso_week))
+
+            # Skip dates that had a fetch failure (already recorded in errors)
+            if week_data is None:
+                continue
+
+            items = week_data.get(sync_date, [])
+
+            # Savepoint so DB errors don't corrupt the session
+            nested = db.begin_nested()
+            try:
+                db.query(MenuItem).filter(
+                    MenuItem.subscription_id == subscription.id,
+                    MenuItem.menu_date == sync_date,
+                    MenuItem.meal_type == meal_type,
+                ).delete()
+
+                for item in items:
+                    db.add(
+                        MenuItem(
+                            subscription_id=subscription.id,
+                            school_id=subscription.school_id,
+                            menu_date=sync_date,
+                            meal_type=meal_type,
+                            serving_line=serving_line,
+                            grade=subscription.grade,
+                            category=item.category,
+                            item_name=item.item_name,
+                        )
+                    )
+                nested.commit()
+            except Exception as e:
+                nested.rollback()
+                logger.error(
+                    "DB upsert failed for %s %s (%s): %s",
                     meal_type,
                     sync_date,
                     subscription.display_name,
                     e,
                 )
-                errors.append(f"{meal_type} {sync_date}: {e}")
+                errors.append(f"{meal_type} {sync_date}: db error: {e}")
+                continue
+
+            total_items += len(items)
 
     duration_ms = int((time.time() - started_at) * 1000)
 

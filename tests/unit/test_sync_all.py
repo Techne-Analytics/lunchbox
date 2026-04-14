@@ -14,7 +14,7 @@ class TestSyncAll:
         db.commit()
 
         mock_client = MagicMock()
-        mock_client.get_daily_menu.return_value = []
+        mock_client.get_weekly_menu.return_value = {}
 
         # Let sync_subscription run for real. First sub's API calls fail,
         # second sub's succeed. Both should produce SyncLog records.
@@ -25,9 +25,9 @@ class TestSyncAll:
             call_count += 1
             if call_count <= 1:
                 raise Exception("Sub1 API failure")
-            return []
+            return {}
 
-        mock_client.get_daily_menu.side_effect = failing_then_ok
+        mock_client.get_weekly_menu.side_effect = failing_then_ok
 
         sync_all(db, mock_client, days=1, skip_weekends=False)
 
@@ -45,7 +45,7 @@ class TestSyncAll:
         db.commit()
 
         mock_client = MagicMock()
-        mock_client.get_daily_menu.return_value = []
+        mock_client.get_weekly_menu.return_value = {}
 
         with patch("lunchbox.sync.engine.sync_subscription") as mock_sync:
             sync_all(db, mock_client, days=1, skip_weekends=False)
