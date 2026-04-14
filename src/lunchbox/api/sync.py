@@ -37,13 +37,19 @@ def trigger_sync(
     if total_items >= settings.max_menu_items:
         raise HTTPException(status_code=400, detail="Menu item limit reached")
 
-    with SchoolCafeClient() as client:
-        log = sync_subscription(
-            db,
-            sub,
-            client,
-            days=settings.days_to_fetch,
-            skip_weekends=settings.skip_weekends,
+    try:
+        with SchoolCafeClient() as client:
+            log = sync_subscription(
+                db,
+                sub,
+                client,
+                days=settings.days_to_fetch,
+                skip_weekends=settings.skip_weekends,
+            )
+    except Exception:
+        logger.exception("Sync trigger failed for subscription %s", subscription_id)
+        raise HTTPException(
+            status_code=500, detail="Sync failed, please try again later"
         )
 
     return {
@@ -138,10 +144,12 @@ def cron_sync(request: Request, db: Session = Depends(get_db)) -> dict:
 
     # Check if any syncs actually succeeded
     new_logs = db.query(SyncLog).filter(SyncLog.started_at >= today_start).all()
-    failed = sum(1 for log in new_logs if log.status == "error")
-    total = len(new_logs) - syncs_today  # only count logs from this run
-    if total > 0 and failed == total:
-        logger.error("All %d syncs failed in cron run", total)
-        raise HTTPException(status_code=500, detail=f"All {total} syncs failed")
+    run_logs = new_logs[syncs_today:]  # only count logs from this run
+    failed = sum(1 for log in run_logs if log.status == "error")
+    skipped = sum(1 for log in run_logs if log.status == "skipped")
+    synced = len(run_logs) - failed - skipped
+    if len(run_logs) > 0 and failed == len(run_logs):
+        logger.error("All %d syncs failed in cron run", len(run_logs))
+        raise HTTPException(status_code=500, detail=f"All {len(run_logs)} syncs failed")
 
-    return {"status": "ok", "synced": total - failed, "failed": failed}
+    return {"status": "ok", "synced": synced, "failed": failed, "skipped": skipped}
