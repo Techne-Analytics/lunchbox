@@ -199,11 +199,15 @@ class SchoolCafeClient:
         try:
             data = response.json()
         except json.JSONDecodeError:
-            logger.warning("SchoolCafe returned invalid JSON for %s %s", school_id, menu_date)
+            logger.warning(
+                "SchoolCafe returned invalid JSON for %s %s", school_id, menu_date
+            )
             return []
 
         if not isinstance(data, dict):
-            logger.warning("SchoolCafe returned non-dict response: %s", type(data).__name__)
+            logger.warning(
+                "SchoolCafe returned non-dict response: %s", type(data).__name__
+            )
             return []
 
         drift_warnings = _detect_drift(data)
@@ -247,7 +251,9 @@ class SchoolCafeClient:
         try:
             districts = response.json()
         except json.JSONDecodeError:
-            logger.warning("SchoolCafe returned invalid JSON for districts query: %s", query)
+            logger.warning(
+                "SchoolCafe returned invalid JSON for districts query: %s", query
+            )
             return []
 
         if not isinstance(districts, list) or not districts:
@@ -265,11 +271,17 @@ class SchoolCafeClient:
         try:
             schools = response.json()
         except json.JSONDecodeError:
-            logger.warning("SchoolCafe returned invalid JSON for schools list: district %s", district_id)
+            logger.warning(
+                "SchoolCafe returned invalid JSON for schools list: district %s",
+                district_id,
+            )
             return []
 
         if not isinstance(schools, list):
-            logger.warning("SchoolCafe returned non-list schools response: %s", type(schools).__name__)
+            logger.warning(
+                "SchoolCafe returned non-list schools response: %s",
+                type(schools).__name__,
+            )
             return []
 
         return [

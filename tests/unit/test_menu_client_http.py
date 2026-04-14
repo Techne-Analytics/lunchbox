@@ -122,7 +122,9 @@ class TestResponseValidation:
             return_value=httpx.Response(200, content=b"not json at all")
         )
         with SchoolCafeClient(max_retries=0) as client:
-            items = client.get_daily_menu("s1", date(2026, 3, 16), "Lunch", "Trad", "05")
+            items = client.get_daily_menu(
+                "s1", date(2026, 3, 16), "Lunch", "Trad", "05"
+            )
         assert items == []
 
     @respx.mock
@@ -131,7 +133,9 @@ class TestResponseValidation:
             return_value=httpx.Response(200, json=["not", "a", "dict"])
         )
         with SchoolCafeClient(max_retries=0) as client:
-            items = client.get_daily_menu("s1", date(2026, 3, 16), "Lunch", "Trad", "05")
+            items = client.get_daily_menu(
+                "s1", date(2026, 3, 16), "Lunch", "Trad", "05"
+            )
         assert items == []
 
     @respx.mock
@@ -140,7 +144,9 @@ class TestResponseValidation:
             return_value=httpx.Response(200, json=None)
         )
         with SchoolCafeClient(max_retries=0) as client:
-            items = client.get_daily_menu("s1", date(2026, 3, 16), "Lunch", "Trad", "05")
+            items = client.get_daily_menu(
+                "s1", date(2026, 3, 16), "Lunch", "Trad", "05"
+            )
         assert items == []
 
     @respx.mock
@@ -205,8 +211,12 @@ class TestRetry:
             httpx.Response(200, json=data),
         ]
 
-        with SchoolCafeClient(max_retries=3, retry_delays=(0, 0, 0), min_request_delay=0) as client:
-            items = client.get_daily_menu("s1", date(2026, 3, 16), "Lunch", "Trad", "05")
+        with SchoolCafeClient(
+            max_retries=3, retry_delays=(0, 0, 0), min_request_delay=0
+        ) as client:
+            items = client.get_daily_menu(
+                "s1", date(2026, 3, 16), "Lunch", "Trad", "05"
+            )
 
         assert len(items) > 0
         assert route.call_count == 2
@@ -220,8 +230,12 @@ class TestRetry:
             httpx.Response(200, json=data),
         ]
 
-        with SchoolCafeClient(max_retries=3, retry_delays=(0, 0, 0), min_request_delay=0) as client:
-            items = client.get_daily_menu("s1", date(2026, 3, 16), "Lunch", "Trad", "05")
+        with SchoolCafeClient(
+            max_retries=3, retry_delays=(0, 0, 0), min_request_delay=0
+        ) as client:
+            items = client.get_daily_menu(
+                "s1", date(2026, 3, 16), "Lunch", "Trad", "05"
+            )
 
         assert len(items) > 0
         assert route.call_count == 2
