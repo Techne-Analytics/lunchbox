@@ -48,7 +48,9 @@ def trigger_sync(
             )
     except Exception:
         logger.exception("Sync trigger failed for subscription %s", subscription_id)
-        raise HTTPException(status_code=500, detail="Sync failed, please try again later")
+        raise HTTPException(
+            status_code=500, detail="Sync failed, please try again later"
+        )
 
     return {
         "status": log.status,
