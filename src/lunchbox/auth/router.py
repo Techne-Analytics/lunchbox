@@ -59,6 +59,8 @@ async def callback(request: Request, db: Session = Depends(get_db)):
         except IntegrityError:
             db.rollback()
             user = db.query(User).filter(User.google_id == google_id).first()
+            if not user:
+                return RedirectResponse(url="/?error=auth_failed")
     else:
         user.email = userinfo.get("email", user.email)
         user.name = userinfo.get("name", user.name)
