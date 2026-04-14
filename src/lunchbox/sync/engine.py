@@ -3,6 +3,7 @@ import time
 from collections import defaultdict
 from datetime import date, timedelta
 
+import httpx
 from sqlalchemy.orm import Session
 
 from lunchbox.models import MenuItem, Subscription, SyncLog
@@ -79,7 +80,7 @@ def sync_subscription(
                     grade=subscription.grade,
                 )
                 fetched[(meal_type, serving_line, iso_year, iso_week)] = week_data
-            except Exception as e:
+            except (httpx.HTTPError, ValueError) as e:
                 logger.error(
                     "Weekly fetch failed for %s week %d-%d (%s): %s",
                     meal_type,

@@ -134,3 +134,68 @@ class TestSyncSubscriptionWeekly:
 
         assert mock_client.get_weekly_menu.call_count == 2
         assert mock_client.get_daily_menu.call_count == 0
+
+    def test_cross_week_makes_one_call_per_week(self, db, monkeypatch):
+        """7-weekday span crossing an ISO week boundary => 2 calls per meal_config."""
+        from datetime import date as _date
+        from tests.factories import create_subscription, create_user
+
+        user = create_user(db)
+        sub = create_subscription(
+            db,
+            user,
+            meal_configs=[
+                {"meal_type": "Lunch", "serving_line": "Trad", "sort_order": 0},
+            ],
+        )
+        db.commit()
+
+        # Pin start to a Thursday so 7 weekdays span 2 ISO weeks
+        # 2026-04-16 is a Thursday
+        fixed_start = _date(2026, 4, 16)
+        import lunchbox.sync.engine as engine_module
+
+        original = engine_module.get_sync_dates
+        monkeypatch.setattr(
+            engine_module,
+            "get_sync_dates",
+            lambda days, skip_weekends, start=None: original(
+                days, skip_weekends, fixed_start
+            ),
+        )
+
+        mock_client = MagicMock()
+        mock_client.get_weekly_menu.return_value = {}
+
+        sync_subscription(db, sub, mock_client, days=7, skip_weekends=True)
+
+        # 7 weekdays starting Thu 4/16 = Thu-Fri of week 16, Mon-Fri of week 17 = 2 weeks
+        assert mock_client.get_weekly_menu.call_count == 2
+
+        # Each call's week_date kwarg must be a Monday (weekday() == 0)
+        for call in mock_client.get_weekly_menu.call_args_list:
+            week_date = call.kwargs["week_date"]
+            assert week_date.weekday() == 0, f"expected Monday, got {week_date}"
+
+    def test_fetch_failure_raises_propagate_as_errors(self, db):
+        """When get_weekly_menu raises ValueError (bad response), record errors per date."""
+        from tests.factories import create_subscription, create_user
+
+        user = create_user(db)
+        sub = create_subscription(
+            db,
+            user,
+            meal_configs=[
+                {"meal_type": "Lunch", "serving_line": "Trad", "sort_order": 0},
+            ],
+        )
+        db.commit()
+
+        mock_client = MagicMock()
+        mock_client.get_weekly_menu.side_effect = ValueError("bad response")
+
+        log = sync_subscription(db, sub, mock_client, days=1, skip_weekends=False)
+
+        # 1 date × 1 meal = 1 expected, and we have 1 error => status=error, not success
+        assert log.status == "error"
+        assert "bad response" in (log.error_message or "")

@@ -349,27 +349,21 @@ class TestGetWeeklyMenu:
         assert len(result) == 1
 
     @respx.mock
-    def test_non_dict_response_returns_empty(self):
+    def test_non_dict_response_raises(self):
         respx.get(f"{BASE_URL}/CalendarView/GetWeeklyMenuitemsByGrade").mock(
             return_value=httpx.Response(200, json=["not", "a", "dict"])
         )
 
         with SchoolCafeClient(max_retries=0) as client:
-            result = client.get_weekly_menu(
-                "s1", date(2026, 4, 13), "Lunch", "Trad", "05"
-            )
-
-        assert result == {}
+            with pytest.raises(ValueError, match="non-dict"):
+                client.get_weekly_menu("s1", date(2026, 4, 13), "Lunch", "Trad", "05")
 
     @respx.mock
-    def test_malformed_json_returns_empty(self):
+    def test_malformed_json_raises(self):
         respx.get(f"{BASE_URL}/CalendarView/GetWeeklyMenuitemsByGrade").mock(
             return_value=httpx.Response(200, content=b"not json")
         )
 
         with SchoolCafeClient(max_retries=0) as client:
-            result = client.get_weekly_menu(
-                "s1", date(2026, 4, 13), "Lunch", "Trad", "05"
-            )
-
-        assert result == {}
+            with pytest.raises(ValueError, match="invalid JSON"):
+                client.get_weekly_menu("s1", date(2026, 4, 13), "Lunch", "Trad", "05")

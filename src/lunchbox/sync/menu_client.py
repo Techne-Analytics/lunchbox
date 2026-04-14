@@ -263,20 +263,26 @@ class SchoolCafeClient:
 
         try:
             data = response.json()
-        except json.JSONDecodeError:
+        except json.JSONDecodeError as exc:
             logger.warning(
                 "SchoolCafe returned invalid JSON for weekly %s %s",
                 school_id,
                 week_date,
             )
-            return {}
+            # Raise so the engine treats this as a fetch failure and records
+            # errors per date, rather than silently wiping a week of menu data.
+            raise ValueError(
+                f"SchoolCafe weekly returned invalid JSON for {school_id} {week_date}"
+            ) from exc
 
         if not isinstance(data, dict):
             logger.warning(
                 "SchoolCafe weekly returned non-dict response: %s",
                 type(data).__name__,
             )
-            return {}
+            raise ValueError(
+                f"SchoolCafe weekly returned non-dict response: {type(data).__name__}"
+            )
 
         result: dict[date, list[MenuItemData]] = {}
         for date_str, day_data in data.items():
