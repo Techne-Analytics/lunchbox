@@ -1,4 +1,5 @@
 import logging
+import uuid
 from pathlib import Path
 
 from markupsafe import escape
@@ -145,6 +146,68 @@ def subscription_detail(
             "base_url": settings.base_url,
         },
     )
+
+
+@router.post("/subscriptions/{subscription_id}/settings", response_class=HTMLResponse)
+async def update_subscription_settings(
+    subscription_id: str,
+    request: Request,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    sub = (
+        db.query(Subscription)
+        .filter(Subscription.id == subscription_id, Subscription.user_id == user.id)
+        .first()
+    )
+    if not sub:
+        raise HTTPException(status_code=404, detail="Subscription not found")
+
+    form = await request.form()
+
+    sub.display_name = form.get("display_name", sub.display_name)
+    sub.grade = form.get("grade", sub.grade)
+
+    categories = form.getlist("categories")
+    sub.included_categories = categories or None
+
+    excluded_raw = form.get("excluded_items", "")
+    sub.excluded_items = [
+        x.strip() for x in excluded_raw.split(",") if x.strip()
+    ] or None
+
+    alert_str = form.get("alert_minutes", "")
+    try:
+        sub.alert_minutes = int(alert_str) if alert_str else None
+    except ValueError:
+        sub.alert_minutes = None
+
+    sub.show_as_busy = "show_as_busy" in form
+
+    db.commit()
+    return Response('<span style="color: green;">Saved!</span>')
+
+
+@router.post(
+    "/subscriptions/{subscription_id}/regenerate-token",
+    response_class=HTMLResponse,
+)
+def regenerate_token_web(
+    subscription_id: str,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    sub = (
+        db.query(Subscription)
+        .filter(Subscription.id == subscription_id, Subscription.user_id == user.id)
+        .first()
+    )
+    if not sub:
+        raise HTTPException(status_code=404, detail="Subscription not found")
+
+    sub.feed_token = uuid.uuid4()
+    db.commit()
+    return RedirectResponse(url=f"/subscriptions/{subscription_id}", status_code=303)
 
 
 @router.get("/web/schools/options", response_class=HTMLResponse)
