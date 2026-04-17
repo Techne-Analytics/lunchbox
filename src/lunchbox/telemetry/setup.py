@@ -27,7 +27,12 @@ def setup_telemetry(engine=None) -> None:
             OTLPSpanExporter,
         )
 
-        resource = Resource.create({"service.name": settings.otel_service_name})
+        resource = Resource.create(
+            {
+                "service.name": settings.otel_service_name,
+                "host.name": "vercel-serverless",
+            }
+        )
 
         # Traces — SimpleSpanProcessor for serverless (synchronous export per span)
         tracer_provider = TracerProvider(resource=resource)
