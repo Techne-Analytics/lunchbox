@@ -33,19 +33,24 @@ def _build_calendar(subscription: Subscription, items: list[MenuItem]) -> Calend
                 i for i in day_items if i.category in subscription.included_categories
             ]
 
-        # Apply item exclusion filter
+        # Apply item exclusion filter (substring match, case-insensitive)
         if subscription.excluded_items:
-            excluded_lower = {e.lower() for e in subscription.excluded_items}
+            excluded_lower = [e.lower() for e in subscription.excluded_items]
             day_items = [
-                i for i in day_items if i.item_name.lower() not in excluded_lower
+                i
+                for i in day_items
+                if not any(exc in i.item_name.lower() for exc in excluded_lower)
             ]
 
         if not day_items:
             continue
 
-        # Build summary: "Lunch: Pizza, Burger, Apple"
-        item_names = [i.item_name for i in day_items]
-        summary = f"{meal_type}: {', '.join(item_names)}"
+        # Build summary: entrees only in title
+        entree_names = [
+            i.item_name for i in day_items if i.category == "Entrees"
+        ]
+        title_names = entree_names if entree_names else [i.item_name for i in day_items]
+        summary = f"{meal_type}: {', '.join(title_names)}"
         if len(summary) > 100:
             summary = summary[:97] + "..."
 

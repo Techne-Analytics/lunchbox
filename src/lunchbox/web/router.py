@@ -194,8 +194,12 @@ def subscription_preview(
     if sub.included_categories:
         items = [i for i in items if i.category in sub.included_categories]
     if sub.excluded_items:
-        excluded_lower = {e.lower() for e in sub.excluded_items}
-        items = [i for i in items if i.item_name.lower() not in excluded_lower]
+        excluded_lower = [e.lower() for e in sub.excluded_items]
+        items = [
+            i
+            for i in items
+            if not any(exc in i.item_name.lower() for exc in excluded_lower)
+        ]
 
     # Group by date -> meal_type -> items
     grouped: dict = {}
