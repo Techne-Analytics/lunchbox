@@ -46,9 +46,7 @@ def _build_calendar(subscription: Subscription, items: list[MenuItem]) -> Calend
             continue
 
         # Build summary: entrees only in title
-        entree_names = [
-            i.item_name for i in day_items if i.category == "Entrees"
-        ]
+        entree_names = [i.item_name for i in day_items if i.category == "Entrees"]
         title_names = entree_names if entree_names else [i.item_name for i in day_items]
         summary = f"{meal_type}: {', '.join(title_names)}"
         if len(summary) > 100:
