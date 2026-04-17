@@ -8,7 +8,7 @@
 </p>
 
 <h2>Settings</h2>
-<form hx-patch="/api/subscriptions/{{ sub.id }}" hx-swap="none">
+<form hx-post="/subscriptions/{{ sub.id }}/settings" hx-target="#save-result" hx-swap="innerHTML">
     <label>Display Name
         <input type="text" name="display_name" value="{{ sub.display_name }}">
     </label>
@@ -40,13 +40,14 @@
     <label><input type="checkbox" name="show_as_busy" {% if sub.show_as_busy %}checked{% endif %}> Show as busy</label>
 
     <button type="submit">Save</button>
+    <span id="save-result"></span>
 </form>
 
 <h2>Actions</h2>
 <button hx-post="/api/sync/trigger/{{ sub.id }}" hx-swap="innerHTML" hx-target="#sync-result">Sync Now</button>
 <span id="sync-result"></span>
 
-<button hx-post="/api/subscriptions/{{ sub.id }}/regenerate-token" hx-swap="outerHTML" hx-confirm="Regenerate feed URL? You'll need to re-subscribe in your calendar app.">Regenerate Feed URL</button>
+<button hx-post="/subscriptions/{{ sub.id }}/regenerate-token" hx-confirm="Regenerate feed URL? You'll need to re-subscribe in your calendar app.">Regenerate Feed URL</button>
 
 <button hx-delete="/api/subscriptions/{{ sub.id }}" hx-confirm="Delete this subscription?" hx-swap="none" onclick="window.location='/dashboard'">Delete</button>
 
