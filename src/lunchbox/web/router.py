@@ -207,7 +207,10 @@ def regenerate_token_web(
 
     sub.feed_token = uuid.uuid4()
     db.commit()
-    return RedirectResponse(url=f"/subscriptions/{subscription_id}", status_code=303)
+    return Response(
+        status_code=200,
+        headers={"HX-Redirect": f"/subscriptions/{subscription_id}"},
+    )
 
 
 @router.get("/web/schools/options", response_class=HTMLResponse)
@@ -257,7 +260,7 @@ def subscription_preview(
     if sub.included_categories:
         items = [i for i in items if i.category in sub.included_categories]
     if sub.excluded_items:
-        excluded_lower = [e.lower() for e in sub.excluded_items]
+        excluded_lower = [e.lower() for e in sub.excluded_items if e.strip()]
         items = [
             i
             for i in items

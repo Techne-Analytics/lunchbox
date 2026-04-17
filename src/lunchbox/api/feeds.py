@@ -35,7 +35,9 @@ def _build_calendar(subscription: Subscription, items: list[MenuItem]) -> Calend
 
         # Apply item exclusion filter (substring match, case-insensitive)
         if subscription.excluded_items:
-            excluded_lower = [e.lower() for e in subscription.excluded_items]
+            excluded_lower = [
+                e.lower() for e in subscription.excluded_items if e.strip()
+            ]
             day_items = [
                 i
                 for i in day_items
