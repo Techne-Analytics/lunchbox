@@ -103,6 +103,18 @@ class TestBuildCalendar:
         assert "PB&J" not in ical
         assert "Pizza" in ical
 
+    def test_excluded_items_ignores_empty_tokens(self):
+        sub = _make_subscription(excluded_items=["", " ", "Yogurt"])
+        items = [
+            _make_item(sub.id, date(2026, 3, 16), "Lunch", "Entrees", "Pizza"),
+            _make_item(sub.id, date(2026, 3, 16), "Lunch", "Fruits", "Yogurt Cup"),
+        ]
+        cal = _build_calendar(sub, items)
+        ical = cal.to_ical().decode()
+
+        assert "Pizza" in ical
+        assert "Yogurt" not in ical
+
     def test_excluded_items_substring_match(self):
         sub = _make_subscription(excluded_items=["Yogurt"])
         items = [
