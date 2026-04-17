@@ -107,7 +107,9 @@ class TestBuildCalendar:
         sub = _make_subscription(excluded_items=["Yogurt"])
         items = [
             _make_item(sub.id, date(2026, 3, 16), "Lunch", "Entrees", "Pizza"),
-            _make_item(sub.id, date(2026, 3, 16), "Lunch", "Fruits", "Strawberry Yogurt"),
+            _make_item(
+                sub.id, date(2026, 3, 16), "Lunch", "Fruits", "Strawberry Yogurt"
+            ),
             _make_item(sub.id, date(2026, 3, 16), "Lunch", "Fruits", "Yogurt Cup"),
         ]
         cal = _build_calendar(sub, items)
