@@ -103,6 +103,48 @@ class TestBuildCalendar:
         assert "PB&J" not in ical
         assert "Pizza" in ical
 
+    def test_excluded_items_substring_match(self):
+        sub = _make_subscription(excluded_items=["Yogurt"])
+        items = [
+            _make_item(sub.id, date(2026, 3, 16), "Lunch", "Entrees", "Pizza"),
+            _make_item(
+                sub.id, date(2026, 3, 16), "Lunch", "Fruits", "Strawberry Yogurt"
+            ),
+            _make_item(sub.id, date(2026, 3, 16), "Lunch", "Fruits", "Yogurt Cup"),
+        ]
+        cal = _build_calendar(sub, items)
+        ical = cal.to_ical().decode()
+
+        assert "Pizza" in ical
+        assert "Yogurt" not in ical
+
+    def test_summary_entrees_only(self):
+        sub = _make_subscription()
+        items = [
+            _make_item(sub.id, date(2026, 3, 16), "Lunch", "Entrees", "Pizza"),
+            _make_item(sub.id, date(2026, 3, 16), "Lunch", "Fruits", "Apple"),
+            _make_item(sub.id, date(2026, 3, 16), "Lunch", "Milk", "1% Milk"),
+        ]
+        cal = _build_calendar(sub, items)
+        ical = cal.to_ical().decode()
+
+        assert "Lunch: Pizza" in ical
+        # Non-entrees should be in description, not title
+        assert "Lunch: Pizza, Apple" not in ical
+        assert "Apple" in ical  # still in description
+
+    def test_summary_fallback_when_no_entrees(self):
+        sub = _make_subscription()
+        items = [
+            _make_item(sub.id, date(2026, 3, 16), "Lunch", "Fruits", "Apple"),
+            _make_item(sub.id, date(2026, 3, 16), "Lunch", "Grains", "Roll"),
+        ]
+        cal = _build_calendar(sub, items)
+        ical = cal.to_ical().decode()
+
+        # iCal escapes commas as \,
+        assert "Lunch: Apple\\, Roll" in ical
+
     def test_alarm_when_alert_minutes_set(self):
         sub = _make_subscription(alert_minutes=15)
         items = [
