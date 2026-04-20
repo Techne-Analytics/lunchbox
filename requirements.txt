@@ -123,7 +123,7 @@ psycopg2-binary==2.9.11
     # via lunchbox (pyproject.toml)
 pycparser==3.0
     # via cffi
-pydantic==2.13.0
+pydantic==2.13.2
     # via
     #   fastapi
     #   pydantic-settings
