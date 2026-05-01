@@ -1,21 +1,21 @@
 # Lunchbox
 
+> **Org-wide rules:** see [`Techne-Analytics/.github/CLAUDE.md`](https://github.com/Techne-Analytics/.github/blob/main/CLAUDE.md).
+> This file documents only what's specific to this repo.
+
 FastAPI web app that syncs school lunch/breakfast menus from SchoolCafe to subscribable iCal calendar feeds.
 
 ## Key Docs — Read These First
 
-- **[CONTRIBUTING.md](CONTRIBUTING.md)** — development workflow, commit conventions, PR rules. Follow this exactly.
+- **[CONTRIBUTING.md](CONTRIBUTING.md)** — repo-specific workflow (trunk-based, GitHub-issue-first). Has its own conventions — read it.
 - **[README.md](README.md)** — project overview and quick start.
 - **[Design Spec](docs/superpowers/specs/2026-04-13-vercel-migration-design.md)** — current architecture (Vercel + Neon).
 
-## Rules
+## Repo-specific workflow
 
-- **All changes go through PRs.** No direct commits to `main`, no matter how small.
-- **Everything starts as a GitHub issue.** Branch from `main`, PR back to `main`.
-- **Semantic commits.** `feat:`, `fix:`, `docs:`, `refactor:`, `test:`, `chore:`.
-- **Atomic commits.** One logical change per commit.
-- **All PRs run pr-toolkit** for review before merging.
-- **Branch naming:** `<type>/<issue-number>-<short-description>`
+- **GitHub Issues, not Linear.** This repo uses GitHub Issues for tracking (most Techne repos use Linear). Every change starts as a GitHub issue.
+- **Branch naming:** `<type>/<issue-number>-<short-description>` (e.g., `feat/12-add-filters`). Differs from the org default — encodes issue number for traceability.
+- **Atomic commits.** One logical change per commit (canon's Git conventions covers commit *types*; this is the additional per-commit-scope rule for this repo).
 
 ## Tech Stack
 
@@ -86,10 +86,12 @@ Required in Vercel dashboard (production):
 - `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` — from Google Cloud Console
 - `OTEL_EXPORTER_OTLP_ENDPOINT` / `OTEL_EXPORTER_OTLP_HEADERS` — from Grafana Cloud
 
-## Sensitive Files — DO NOT COMMIT
+## Repo-specific sensitive files (do not commit)
 
-- `.env` — secrets, API keys, OAuth credentials
-- Any `token.json` or `client_secret.json`
+Org canon already covers `.env`. Additional files specific to this repo:
+
+- `token.json` (Google OAuth refresh tokens)
+- `client_secret.json` (Google OAuth client config)
 
 ## External APIs
 
