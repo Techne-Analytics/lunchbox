@@ -1,5 +1,7 @@
 # Contributing to Lunchbox
 
+> **Why we override the org default:** this repo uses GitHub Issues (not Linear) and a `<type>/<issue-number>-<description>` branch-naming format that encodes the issue number. Org-wide rules in [`Techne-Analytics/.github/CONTRIBUTING.md`](https://github.com/Techne-Analytics/.github/blob/main/CONTRIBUTING.md).
+
 ## Development Workflow
 
 **Trunk-based development.** `main` is the only long-lived branch.
